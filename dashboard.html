@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StockPulse - Target Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+@keyframes pg{0%,100%{box-shadow:0 0 0 0 rgba(0,255,136,0.3)}50%{box-shadow:0 0 0 6px rgba(0,255,136,0)}}
+*{margin:0;padding:0;box-sizing:border-box}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:#1e2d3d;border-radius:3px}
+body{font-family:"IBM Plex Mono",monospace;background:#060a10;color:#8899aa;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:16px 16px 32px}
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 0 16px;border-bottom:1px solid #0f1a24;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.hdr-l{display:flex;align-items:center;gap:10px}
+.hdr-icon{width:32px;height:32px;border-radius:6px;background:linear-gradient(135deg,#cc0000,#ff3333);display:flex;align-items:center;justify-content:center;font-size:14px;color:white;font-weight:700;font-family:Outfit,sans-serif}
+.hdr-t{font-family:Outfit,sans-serif;font-weight:800;font-size:18px;color:#e0e8ef;letter-spacing:-0.5px}
+.hdr-s{font-size:9px;color:#445566;letter-spacing:1.5px;text-transform:uppercase}
+.stats{display:flex;gap:14px;font-size:10px;color:#445566;align-items:center;flex-wrap:wrap}
+.v{color:#6688aa;font-weight:600}.g{color:#00ff88!important}.y{color:#f59e0b!important}
+.ld{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}.ld-on{background:#00ff88;animation:pg 2s infinite}.ld-off{background:#334455}
+.ctrl{display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.btn{background:#0c1420;border:1px solid #152030;border-radius:5px;padding:6px 12px;color:#6688aa;font-family:"IBM Plex Mono",monospace;font-size:10px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn:hover{background:#121e2c;border-color:#1e3448;color:#88aacc}
+.btn-go{background:#001a0f;border-color:#00ff8825;color:#00ff88}.btn-stop{background:#1a0508;border-color:#ff445525;color:#ff4455}
+.btn-test{background:#0c0f28;border-color:#7c3aed30;color:#7c3aed}
+.inp{background:#0a1018;border:1px solid #152030;border-radius:5px;padding:6px 10px;color:#88aacc;font-family:"IBM Plex Mono",monospace;font-size:10px;outline:none;min-width:180px}
+.inp:focus{border-color:#00ff8840}
+.sel{background:#0c1420;border:1px solid #152030;border-radius:5px;padding:6px 8px;color:#6688aa;font-family:"IBM Plex Mono",monospace;font-size:10px;outline:none;cursor:pointer}
+.pills{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.pill{background:#0a1018;border:1px solid #121e2c;border-radius:4px;padding:4px 8px;font-size:9px;color:#556677;cursor:pointer}.pill:hover{border-color:#1e3448;color:#88aacc}.pill-a{background:#001a0f;border-color:#00ff8830;color:#00ff88}
+.tw{max-height:500px;overflow-y:auto;border:1px solid #0f1a24;border-radius:6px;background:#070b12}
+table{width:100%;border-collapse:collapse}
+th{font-size:9px;color:#334455;letter-spacing:1px;text-transform:uppercase;text-align:left;padding:6px 8px;border-bottom:1px solid #0f1a24;font-weight:500;position:sticky;top:0;background:#070b12;z-index:2}
+td{font-size:11px;padding:5px 8px;border-bottom:1px solid #0a1018;vertical-align:middle}
+tr:hover td{background:#0a0f16}
+th.resizable{position:relative;resize:horizontal;overflow:hidden}
+.name-cell{color:#c0cdd8;font-weight:500;min-width:120px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default}
+.name-cell:hover{white-space:normal;overflow:visible;position:relative;z-index:3;background:#0a0f16}
+tr.row-alert td{background:#00ff8808}tr.row-instock td{background:#001a0f08}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:4px}
+.s-is{color:#00ff88;font-weight:600;font-size:10px}.s-is .dot{background:#00ff88;box-shadow:0 0 6px #00ff8860}
+.s-oos{color:#445566;font-size:10px}.s-oos .dot{background:#334455}
+.s-idle{color:#334455;font-size:10px}.s-idle .dot{background:#1a2233}
+.s-err{color:#ff4455;font-size:10px}.s-err .dot{background:#ff4455}
+.badge{font-size:9px;padding:2px 6px;border-radius:3px;font-weight:500;display:inline-block;color:#fff;opacity:.85}
+.p-ok{color:#00ff88}.p-warn{color:#f59e0b}.p-bad{color:#ff4455}
+.sell-t{color:#cc0000;font-weight:600;font-size:10px}.sell-3p{color:#ff4455;font-size:10px;opacity:.6;text-decoration:line-through}
+.ck{width:14px;height:14px;accent-color:#00ff88;cursor:pointer}
+.lk{color:#3b82f6;text-decoration:none;font-size:10px}.lk:hover{text-decoration:underline}
+.ll{font-size:9px;color:#334455;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between}
+.lb{background:#050810;border:1px solid #0f1a24;border-radius:6px;padding:10px;max-height:180px;overflow-y:auto;font-size:9px;line-height:1.8}
+.le{display:flex;gap:8px}.lt{color:#223344;flex-shrink:0;min-width:70px}
+.lm{color:#445566}.l-success{color:#00ff88;font-weight:500}.l-error{color:#ff4455}.l-warn{color:#f59e0b}.l-system{color:#3b82f6}.l-discord{color:#7c3aed}
+.sb{display:flex;gap:2px;margin-bottom:12px;height:4px;border-radius:2px;overflow:hidden;background:#0a1018}
+.empty{text-align:center;padding:32px;color:#223344;font-size:11px}
+.del-btn{background:none;border:1px solid #ff445520;color:#ff445560;font-size:10px;cursor:pointer;padding:2px 6px;border-radius:3px;font-family:"IBM Plex Mono",monospace}.del-btn:hover{color:#ff4455;border-color:#ff445560}
+.cart-btn{background:none;border:1px solid #00ff8830;color:#00ff88;font-size:12px;cursor:pointer;padding:1px 4px;border-radius:3px;margin-left:4px;vertical-align:middle}.cart-btn:hover{background:#00ff8815;border-color:#00ff88}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div class="hdr-l">
+      <div class="hdr-icon">&#9678;</div>
+      <div><div class="hdr-t">StockPulse</div><div class="hdr-s">Pokemon TCG &bull; Target Monitor</div></div>
+    </div>
+    <div class="stats" id="stats"></div>
+  </div>
+  <div class="ctrl">
+    <button class="btn btn-go" id="startBtn">&#9654; Start</button>
+    <button class="btn btn-test" id="testBtn">Test Discord</button>
+    <input class="inp" id="searchBox" placeholder="Search name or SKU...">
+    <select class="sel" id="typeFilter"><option value="all">All Types</option></select>
+    <button class="btn" id="allOnBtn">All On</button>
+    <button class="btn" id="allOffBtn">All Off</button>
+    <button class="btn" id="scanBtn">Scan MSRPs</button>
+    <span style="color:#556677;font-size:11px;margin-left:8px">Qty:</span>
+    <input class="inp" id="globalQty" type="number" min="1" max="10" value="2" style="width:45px;text-align:center;padding:2px 4px">
+  </div>
+  <div class="ctrl">
+    <input class="inp" id="addUrl" placeholder="Paste Target URL or TCIN..." style="flex:1;min-width:300px">
+    <button class="btn btn-go" id="addBtn">+ Add</button>
+    <button class="btn" id="deleteAllBtn" style="border-color:#ff445525;color:#ff4455">Delete All</button>
+  </div>
+  <div class="ctrl" id="harvesterBar">
+    <span style="color:#556677;font-size:11px">Extension:</span>
+    <span id="harvesterStatus" style="font-size:11px;font-weight:600;color:#ff4455">checking...</span>
+    <button class="btn" id="settingsToggle" style="border-color:#556677">Settings</button>
+  </div>
+  <div class="ctrl" id="discordBar" style="gap:12px">
+    <span style="color:#556677;font-size:11px">Discord Listener:</span>
+    <span id="discordChannels" style="display:flex;gap:8px;flex-wrap:wrap"></span>
+  </div>
+  <div id="settingsPanel" style="display:none;background:#060a0f;border:1px solid #0f1a25;border-radius:6px;padding:14px;margin-top:6px">
+    <div style="color:#8899aa;font-size:10px;text-transform:uppercase;margin-bottom:8px;letter-spacing:1px">Extension Status</div>
+    <div style="color:#556677;font-size:10px;margin-bottom:10px">
+      The Chrome extension auto-syncs your Target session. Just stay logged into target.com.
+    </div>
+    <div id="extStatus" style="padding:8px;border-radius:4px;font-size:12px;margin-bottom:12px;background:#00ff8810;border:1px solid #00ff8830;color:#00ff88">Checking...</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      <div style="min-width:200px">
+        <div style="color:#8899aa;font-size:10px;text-transform:uppercase;margin-bottom:8px;letter-spacing:1px">Auto-Checkout</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+          <input class="inp" id="cfgTargetPw" placeholder="Target password" type="password" style="width:180px" autocomplete="off">
+          <button class="btn" id="saveTargetPwBtn">Save Password</button>
+          <span id="pwStatus" style="font-size:10px;color:#557766"></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input class="inp" id="cfgCvv" placeholder="CVV" type="password" style="width:80px" maxlength="4" autocomplete="off">
+          <button class="btn" id="saveCvvBtn">Save CVV</button>
+          <span id="cvvStatus" style="font-size:10px;color:#557766"></span>
+        </div>
+      </div>
+    </div>
+    <span id="credStatus" style="font-size:10px;color:#557766;margin-top:6px;display:block"></span>
+  </div>
+  <div class="sb" id="statsBar"></div>
+  <div class="pills" id="pills"></div>
+  <div class="tw">
+    <table>
+      <thead><tr>
+        <th style="width:28px">On</th><th style="width:28px">CO</th><th>Product</th><th>Type</th><th>SKU</th><th>MSRP</th><th>Price</th><th>Seller</th><th>Qty</th><th>Status</th><th>Last</th><th></th><th style="width:28px"></th>
+      </tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px">
+    <div class="ll"><span>Event Log</span><span id="uptime"></span></div>
+    <div class="lb" id="logBox"></div>
+  </div>
+</div>
+
+<script>
+var TC = {
+  "ETB":"#f59e0b","Booster Bundle":"#3b82f6","Booster Box":"#8b5cf6",
+  "Ex Box":"#ef4444","Blister":"#06b6d4","Tech Sticker":"#10b981",
+  "Binder":"#ec4899","Premium Collection":"#f97316","UPC":"#fbbf24",
+  "Super Premium":"#a855f7","Pin Collection":"#14b8a6","Mini Tin":"#6366f1",
+  "Poster":"#78716c","Poster Collection":"#78716c","Bundle":"#64748b",
+  "Collection Box":"#0ea5e9","Figure Collection":"#d946ef",
+  "Surprise Box":"#eab308","Special Collection":"#22d3ee"
+};
+
+var state = null;
+var curFilter = "all";
+var typesLoaded = false;
+var lastStateJson = "";
+
+function fmtTime(t) {
+  if (!t) return "\u2014";
+  try { return new Date(t).toLocaleTimeString("en-US", {hour:"numeric",minute:"2-digit",second:"2-digit"}); }
+  catch(e) { return "\u2014"; }
+}
+
+function fmtUp(s) {
+  var h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return h > 0 ? h+"h "+m+"m" : m > 0 ? m+"m "+sec+"s" : sec+"s";
+}
+
+function esc(s) {
+  var d = document.createElement("div");
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function fetchState() {
+  fetch("/api/state")
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var newJson = JSON.stringify(d);
+      if (newJson !== lastStateJson) {
+        lastStateJson = newJson;
+        state = d;
+        render();
+      }
+    })
+    .catch(function(e) { console.error("Fetch error:", e); });
+}
+
+function render() {
+  if (!state) return;
+
+  // Update qty display
+  var qtyEl = document.getElementById("globalQty");
+  if (qtyEl && state.atcQty && qtyEl !== document.activeElement) {
+    qtyEl.value = state.atcQty;
+  }
+
+  // Update harvester status
+  var hStatus = state.harvester || "disconnected";
+  var hEl = document.getElementById("harvesterStatus");
+  if (hEl) {
+    var labels = {disconnected:"not connected", harvesting:"cookies set (not logged in)", ready:"connected"};
+    var label = labels[hStatus] || hStatus;
+    // Add token expiry countdown
+    if (hStatus === "ready" && state.tokenExpiry) {
+      var minsLeft = Math.floor((state.tokenExpiry - Date.now()) / 60000);
+      if (minsLeft > 0) label += " (token: " + minsLeft + "m)";
+      else label += " (token EXPIRED)";
+    }
+    hEl.textContent = label;
+    var colors = {disconnected:"#ff4455", harvesting:"#ffaa00", ready:"#00ff88"};
+    hEl.style.color = colors[hStatus] || "#ff4455";
+    // Warn if token expiring soon
+    if (hStatus === "ready" && state.tokenExpiry) {
+      var ml = Math.floor((state.tokenExpiry - Date.now()) / 60000);
+      if (ml <= 30) hEl.style.color = "#ffaa00";
+      if (ml <= 0) hEl.style.color = "#ff4455";
+    }
+  }
+
+  // Update extension status in settings panel
+  var extEl = document.getElementById("extStatus");
+  if (extEl) {
+    if (hStatus === "ready") {
+      extEl.textContent = "Connected — extension syncing cookies";
+      extEl.style.background = "#00ff8810"; extEl.style.borderColor = "#00ff8830"; extEl.style.color = "#00ff88";
+    } else {
+      extEl.textContent = "Not connected — install extension and open target.com";
+      extEl.style.background = "#ff445510"; extEl.style.borderColor = "#ff445530"; extEl.style.color = "#ff4455";
+    }
+  }
+
+  try { doRender(); }
+  catch(e) { console.error("Render error:", e); }
+}
+
+function doRender() {
+  var s = state.stats;
+  var p = state.products;
+  var l = state.logs;
+  var search = document.getElementById("searchBox").value.toLowerCase();
+  var tf = document.getElementById("typeFilter").value;
+  var thr = state.config.msrpThreshold;
+
+  // Stats header
+  var statsEl = document.getElementById("stats");
+  statsEl.innerHTML = "";
+  var parts = [
+    {label: "", val: s.running ? "LIVE" : "IDLE", cls: s.running ? "v g" : "v", dot: true, dotOn: s.running},
+    {label: "tracking ", val: s.enabled, cls: "v"},
+    {label: "checks ", val: s.totalChecks, cls: "v"},
+    {label: "in stock ", val: s.inStock, cls: "v g"},
+    {label: "alerts ", val: s.totalAlerts, cls: "v y"},
+  ];
+  parts.forEach(function(pt) {
+    var span = document.createElement("span");
+    if (pt.dot) {
+      var dotEl = document.createElement("span");
+      dotEl.className = pt.dotOn ? "ld ld-on" : "ld ld-off";
+      span.appendChild(dotEl);
+    }
+    if (pt.label) span.appendChild(document.createTextNode(pt.label));
+    var valEl = document.createElement("span");
+    valEl.className = pt.cls;
+    valEl.textContent = " " + pt.val;
+    span.appendChild(valEl);
+    statsEl.appendChild(span);
+  });
+
+  // Start/stop button
+  var btn = document.getElementById("startBtn");
+  if (s.running) {
+    btn.className = "btn btn-stop";
+    btn.innerHTML = "&#9632; Stop";
+  } else {
+    btn.className = "btn btn-go";
+    btn.innerHTML = "&#9654; Start";
+  }
+
+  // Uptime
+  document.getElementById("uptime").textContent = s.running ? "Uptime: " + fmtUp(s.uptime) : "";
+
+  // Type filter (load once)
+  if (!typesLoaded && p.length > 0) {
+    typesLoaded = true;
+    var typeSet = {};
+    p.forEach(function(x) { typeSet[x.type] = 1; });
+    var sel = document.getElementById("typeFilter");
+    Object.keys(typeSet).sort().forEach(function(t) {
+      var o = document.createElement("option");
+      o.value = t;
+      o.textContent = t;
+      sel.appendChild(o);
+    });
+  }
+
+  // Filter products
+  var filtered = p.slice();
+  if (curFilter === "in_stock") filtered = p.filter(function(x) { return x.status === "IN_STOCK"; });
+  else if (curFilter === "oos") filtered = p.filter(function(x) { return x.status === "OUT_OF_STOCK"; });
+  else if (curFilter === "alerts") filtered = p.filter(function(x) { return x.alerts > 0; });
+  else if (curFilter === "enabled") filtered = p.filter(function(x) { return x.enabled; });
+  if (search) filtered = filtered.filter(function(x) { return x.name.toLowerCase().indexOf(search) !== -1 || x.sku.indexOf(search) !== -1; });
+  if (tf !== "all") filtered = filtered.filter(function(x) { return x.type === tf; });
+
+  // Stats bar
+  var al = p.filter(function(x) { return x.status === "IN_STOCK" && !x.isThirdParty; }).length;
+  var is = s.inStock;
+  var tot = Math.max(p.length, 1);
+  var bar = document.getElementById("statsBar");
+  bar.innerHTML = "";
+  [{w: (al/tot)*100, c: "#00ff88"}, {w: ((is-al)/tot)*100, c: "#f59e0b"}, {w: ((tot-is)/tot)*100, c: "#1a2233"}].forEach(function(seg) {
+    var d = document.createElement("div");
+    d.style.width = seg.w + "%";
+    d.style.background = seg.c;
+    d.style.transition = "width .3s";
+    bar.appendChild(d);
+  });
+
+  // Pills
+  var pillsEl = document.getElementById("pills");
+  pillsEl.innerHTML = "";
+  [["all","All ("+p.length+")"],["in_stock","In Stock ("+is+")"],["alerts","Alerted ("+s.totalAlerts+")"],["enabled","Enabled ("+s.enabled+")"],["oos","OOS"]].forEach(function(pair) {
+    var sp = document.createElement("span");
+    sp.className = "pill" + (curFilter === pair[0] ? " pill-a" : "");
+    sp.textContent = pair[1];
+    sp.setAttribute("data-filter", pair[0]);
+    pillsEl.appendChild(sp);
+  });
+
+  // Table rows - built with DOM, no innerHTML for rows
+  var tbody = document.getElementById("tbody");
+  tbody.innerHTML = "";
+
+  if (filtered.length === 0) {
+    var emptyRow = document.createElement("tr");
+    var emptyTd = document.createElement("td");
+    emptyTd.colSpan = 13;
+    emptyTd.className = "empty";
+    emptyTd.textContent = "No products match filters";
+    emptyRow.appendChild(emptyTd);
+    tbody.appendChild(emptyRow);
+    return;
+  }
+
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < filtered.length; i++) {
+    var x = filtered[i];
+    var isAlert = x.status === "IN_STOCK" && !x.isThirdParty && (!x.currentPrice || x.currentPrice <= x.msrp * (1 + thr/100));
+    var tr = document.createElement("tr");
+    if (isAlert) tr.className = "row-alert";
+    else if (x.status === "IN_STOCK") tr.className = "row-instock";
+
+    // Checkbox - On
+    var td0 = document.createElement("td");
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.className = "ck";
+    cb.checked = x.enabled;
+    cb.setAttribute("data-sku", x.sku);
+    td0.appendChild(cb);
+    tr.appendChild(td0);
+
+    // Checkbox - Auto Checkout
+    var tdCo = document.createElement("td");
+    var cbCo = document.createElement("input");
+    cbCo.type = "checkbox";
+    cbCo.className = "ck";
+    cbCo.checked = !!x.autoCheckout;
+    cbCo.setAttribute("data-co-sku", x.sku);
+    cbCo.title = "Auto-checkout when in stock";
+    tdCo.appendChild(cbCo);
+    tr.appendChild(tdCo);
+
+    // Name
+    var td1 = document.createElement("td");
+    td1.className = "name-cell";
+    td1.textContent = x.name;
+    td1.title = x.name;
+    tr.appendChild(td1);
+
+    // Type badge
+    var td2 = document.createElement("td");
+    var badge = document.createElement("span");
+    badge.className = "badge";
+    badge.style.background = TC[x.type] || "#334455";
+    badge.textContent = x.type;
+    td2.appendChild(badge);
+    tr.appendChild(td2);
+
+    // SKU
+    var td3 = document.createElement("td");
+    td3.style.cssText = "color:#556677;font-size:10px";
+    td3.textContent = x.sku;
+    tr.appendChild(td3);
+
+    // MSRP
+    var td4 = document.createElement("td");
+    td4.style.color = "#6688aa";
+    if (x.msrp && x.msrp > 0) {
+      td4.textContent = "$" + x.msrp;
+    } else {
+      td4.textContent = "SCAN";
+      td4.style.color = "#ff4455";
+      td4.style.fontSize = "10px";
+    }
+    tr.appendChild(td4);
+
+    // Price
+    var td5 = document.createElement("td");
+    if (x.currentPrice) {
+      td5.textContent = "$" + x.currentPrice.toFixed(2);
+      if (x.currentPrice <= x.msrp * (1 + thr/100)) td5.className = "p-ok";
+      else if (x.currentPrice <= x.msrp * 1.5) td5.className = "p-warn";
+      else td5.className = "p-bad";
+    } else {
+      td5.textContent = "\u2014";
+    }
+    tr.appendChild(td5);
+
+    // Seller
+    var td6 = document.createElement("td");
+    if (x.seller) {
+      var selSpan = document.createElement("span");
+      selSpan.className = x.isThirdParty ? "sell-3p" : "sell-t";
+      selSpan.textContent = x.seller;
+      td6.appendChild(selSpan);
+    } else {
+      td6.textContent = "\u2014";
+    }
+    tr.appendChild(td6);
+
+    // Qty
+    var td7 = document.createElement("td");
+    if (x.quantity) {
+      td7.style.color = "#00ff88";
+      td7.style.fontWeight = "600";
+      td7.textContent = x.quantity;
+      td7.title = x.quantity + " available (via cart check)";
+    } else if (x.status === "IN_STOCK") {
+      td7.style.color = "#557766";
+      td7.textContent = "\u2713";
+      td7.title = "In stock (qty unknown)";
+    } else {
+      td7.style.color = "#334455";
+      td7.textContent = "\u2014";
+    }
+    tr.appendChild(td7);
+
+    // Status
+    var td8 = document.createElement("td");
+    var stSpan = document.createElement("span");
+    var dotSpan = document.createElement("span");
+    dotSpan.className = "dot";
+    if (x.status === "IN_STOCK") { stSpan.className = "s-is"; stSpan.appendChild(dotSpan); stSpan.appendChild(document.createTextNode("IN STOCK")); }
+    else if (x.status === "OUT_OF_STOCK") { stSpan.className = "s-oos"; stSpan.appendChild(dotSpan); stSpan.appendChild(document.createTextNode("OOS")); }
+    else if (x.status === "ERROR") { stSpan.className = "s-err"; stSpan.appendChild(dotSpan); stSpan.appendChild(document.createTextNode("ERR")); }
+    else { stSpan.className = "s-idle"; stSpan.appendChild(dotSpan); stSpan.appendChild(document.createTextNode("\u2014")); }
+    td8.appendChild(stSpan);
+    tr.appendChild(td8);
+
+    // Last checked
+    var td9 = document.createElement("td");
+    td9.style.cssText = "color:#334455;font-size:9px";
+    td9.textContent = fmtTime(x.lastChecked);
+    tr.appendChild(td9);
+
+    // Link
+    var td10 = document.createElement("td");
+    td10.style.whiteSpace = "nowrap";
+    var a = document.createElement("a");
+    a.className = "lk";
+    a.href = "https://www.target.com/p/-/A-" + x.sku;
+    a.target = "_blank";
+    a.textContent = "\u2197";
+    td10.appendChild(a);
+    // Test Checkout button (for products with CO enabled)
+    if (x.autoCheckout) {
+      var testBtn = document.createElement("button");
+      testBtn.className = "cart-btn";
+      testBtn.textContent = "\u26A1";
+      testBtn.title = "Test full ATC + Checkout";
+      testBtn.setAttribute("data-test-sku", x.sku);
+      testBtn.style.borderColor = "#ffaa0030";
+      testBtn.style.color = "#ffaa00";
+      td10.appendChild(testBtn);
+    }
+    // Cart button (for in-stock)
+    if (x.status === "IN_STOCK") {
+      var cartBtn = document.createElement("button");
+      cartBtn.className = "cart-btn";
+      cartBtn.textContent = "\uD83D\uDED2";
+      cartBtn.title = "Open checkout assist";
+      cartBtn.setAttribute("data-checkout-sku", x.sku);
+      td10.appendChild(cartBtn);
+    }
+    tr.appendChild(td10);
+
+    // Delete button
+    var td11 = document.createElement("td");
+    var delBtn = document.createElement("button");
+    delBtn.className = "del-btn";
+    delBtn.textContent = "\u00d7";
+    delBtn.setAttribute("data-del-sku", x.sku);
+    td11.appendChild(delBtn);
+    tr.appendChild(td11);
+
+    frag.appendChild(tr);
+  }
+  tbody.appendChild(frag);
+
+  // Logs
+  var logBox = document.getElementById("logBox");
+  var atBot = logBox.scrollTop + logBox.clientHeight >= logBox.scrollHeight - 20;
+  var logFrag = document.createDocumentFragment();
+  for (var j = 0; j < l.length; j++) {
+    var le = document.createElement("div");
+    le.className = "le";
+    var lt = document.createElement("span");
+    lt.className = "lt";
+    lt.textContent = fmtTime(l[j].time);
+    var lm = document.createElement("span");
+    lm.className = "lm l-" + l[j].type;
+    lm.textContent = l[j].msg;
+    le.appendChild(lt);
+    le.appendChild(lm);
+    logFrag.appendChild(le);
+  }
+  logBox.innerHTML = "";
+  logBox.appendChild(logFrag);
+  if (atBot) logBox.scrollTop = logBox.scrollHeight;
+}
+
+// Event listeners
+document.getElementById("startBtn").addEventListener("click", function() {
+  if (state && state.stats.running) fetch("/api/stop", {method:"POST"}).then(fetchState);
+  else fetch("/api/start", {method:"POST"}).then(fetchState);
+});
+
+document.getElementById("testBtn").addEventListener("click", function() {
+  fetch("/api/test-discord", {method:"POST"})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.ok) alert("Test sent! Check your Discord.");
+      else alert("Failed: " + (d.error || "unknown"));
+    });
+});
+
+document.getElementById("allOnBtn").addEventListener("click", function() {
+  fetch("/api/toggle-all", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({enabled:true})}).then(fetchState);
+});
+
+document.getElementById("globalQty").addEventListener("change", function() {
+  var qty = parseInt(this.value) || 2;
+  if (qty < 1) qty = 1;
+  if (qty > 10) qty = 10;
+  this.value = qty;
+  fetch("/api/set-qty", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({qty:qty})});
+});
+
+document.getElementById("allOffBtn").addEventListener("click", function() {
+  fetch("/api/toggle-all", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({enabled:false})}).then(fetchState);
+});
+
+document.getElementById("settingsToggle").addEventListener("click", function() {
+  var panel = document.getElementById("settingsPanel");
+  panel.style.display = panel.style.display === "none" ? "" : "none";
+  if (panel.style.display !== "none") {
+    fetch("/api/harvester/credentials").then(function(r) { return r.json(); }).then(function(d) {
+      document.getElementById("cfgImapHost").value = d.imapHost || "imap.gmail.com";
+      document.getElementById("cfgImapPort").value = d.imapPort || 993;
+      document.getElementById("cfgImapEmail").value = d.imapEmail || "";
+      document.getElementById("cfgImapPass").value = "";
+      document.getElementById("cfgImapPass").placeholder = d.hasImapPassword ? "••••••••  (saved)" : "IMAP app password";
+    });
+  }
+});
+
+document.getElementById("saveTargetPwBtn").addEventListener("click", function() {
+  var pw = document.getElementById("cfgTargetPw").value.trim();
+  if (!pw) return;
+  fetch("/api/harvester/credentials", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({targetPassword:pw})})
+    .then(function() {
+      document.getElementById("pwStatus").textContent = "Saved ✓";
+      document.getElementById("pwStatus").style.color = "#00ff88";
+      document.getElementById("cfgTargetPw").value = "";
+      document.getElementById("cfgTargetPw").placeholder = "••••••••  (saved)";
+    });
+});
+
+document.getElementById("saveCvvBtn").addEventListener("click", function() {
+  var cvv = document.getElementById("cfgCvv").value.trim();
+  if (!cvv) return;
+  fetch("/api/harvester/credentials", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({cvv:cvv})})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById("cfgCvv").value = "";
+      document.getElementById("cfgCvv").placeholder = "••• (saved)";
+      document.getElementById("cvvStatus").textContent = "Saved";
+      document.getElementById("cvvStatus").style.color = "#00ff88";
+    });
+});
+
+document.getElementById("scanBtn").addEventListener("click", function() {
+  fetch("/api/scan-msrp", {method:"POST"}).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) alert("MSRP scan started — watch the log for updates.");
+  });
+});
+
+document.getElementById("addBtn").addEventListener("click", function() {
+  var url = document.getElementById("addUrl").value.trim();
+  if (!url) return;
+  document.getElementById("addBtn").textContent = "Adding...";
+  fetch("/api/add-product", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({url:url})})
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById("addBtn").textContent = "+ Add";
+      if (d.error) alert("Error: " + d.error);
+      else { alert("Added " + d.added + " products! Total: " + d.total); document.getElementById("addUrl").value = ""; }
+      fetchState();
+    })
+    .catch(function(e) { document.getElementById("addBtn").textContent = "+ Add"; alert("Error: " + e.message); });
+});
+
+document.getElementById("addUrl").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") document.getElementById("addBtn").click();
+});
+
+document.getElementById("deleteAllBtn").addEventListener("click", function() {
+  if (confirm("Delete ALL products? This cannot be undone.")) {
+    fetch("/api/delete-all", {method:"POST"}).then(fetchState);
+  }
+});
+
+// Delete button via delegation on tbody
+document.getElementById("tbody").addEventListener("click", function(e) {
+  if (e.target.classList.contains("del-btn")) {
+    var sku = e.target.getAttribute("data-del-sku");
+    if (confirm("Delete SKU " + sku + "?")) {
+      fetch("/api/delete/" + sku, {method:"POST"}).then(fetchState);
+    }
+  }
+  if (e.target.classList.contains("cart-btn")) {
+    var sku = e.target.getAttribute("data-checkout-sku");
+    e.target.textContent = "...";
+    fetch("/api/atc/" + sku, {method:"POST"}).then(function(r) { return r.json(); }).then(function(d) {
+      e.target.textContent = "\uD83D\uDED2";
+      if (d.ok) alert("Added to cart! Go to target.com/checkout");
+      else alert("ATC failed: " + (d.error || "unknown"));
+    });
+  }
+  if (e.target.getAttribute("data-test-sku")) {
+    var sku = e.target.getAttribute("data-test-sku");
+    e.target.textContent = "...";
+    e.target.style.color = "#ffaa00";
+    fetch("/api/test-checkout/" + sku, {method:"POST"}).then(function(r) { return r.json(); }).then(function(d) {
+      e.target.textContent = "\u26A1";
+      if (d.ok) {
+        e.target.style.color = "#00ff88";
+        setTimeout(function() { e.target.style.color = "#ffaa00"; }, 3000);
+      } else {
+        e.target.style.color = "#ff4455";
+        setTimeout(function() { e.target.style.color = "#ffaa00"; }, 3000);
+      }
+    });
+  }
+});
+
+document.getElementById("searchBox").addEventListener("input", function() { render(); });
+document.getElementById("typeFilter").addEventListener("change", function() { render(); });
+
+document.getElementById("tbody").addEventListener("change", function(e) {
+  if (e.target.classList.contains("ck") && e.target.getAttribute("data-sku")) {
+    fetch("/api/toggle/" + e.target.getAttribute("data-sku"), {method:"POST"});
+  }
+  if (e.target.classList.contains("ck") && e.target.getAttribute("data-co-sku")) {
+    fetch("/api/toggle-checkout/" + e.target.getAttribute("data-co-sku"), {method:"POST"});
+  }
+});
+
+document.getElementById("pills").addEventListener("click", function(e) {
+  var f = e.target.getAttribute("data-filter");
+  if (f) { curFilter = f; render(); }
+});
+
+// Discord channel toggles
+function fetchDiscordChannels() {
+  fetch("/api/discord-channels").then(function(r) { return r.json(); }).then(function(d) {
+    var container = document.getElementById("discordChannels");
+    if (!container || !d.channels) return;
+    container.innerHTML = "";
+    d.channels.forEach(function(ch) {
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;align-items:center;gap:4px;cursor:pointer;font-size:11px;color:" + (ch.active ? "#00ff88" : "#556677");
+      var cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = ch.active;
+      cb.className = "ck";
+      cb.addEventListener("change", function() {
+        fetch("/api/discord-channels/toggle/" + ch.key, {method:"POST"}).then(fetchDiscordChannels);
+      });
+      var span = document.createElement("span");
+      span.textContent = ch.name;
+      label.appendChild(cb);
+      label.appendChild(span);
+      container.appendChild(label);
+    });
+  }).catch(function() {});
+}
+
+// Poll every second
+fetchState();
+fetchDiscordChannels();
+setInterval(fetchState, 2000);
+setInterval(fetchDiscordChannels, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/stock puslee/CopilotIndices/18.0.988.22099
+*.sqlite
+/.vs/stock puslee.slnx/FileContentIndex
+/.vs/stock puslee.slnx/v18/.wsuo
