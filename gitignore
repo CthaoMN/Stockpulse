@@ -1,0 +1,3 @@
+node_modules/
+.stockpulse-creds.json
+.stockpulse-products.json

@@ -1,0 +1,17 @@
+{
+  "name": "stockpulse",
+  "version": "1.0.0",
+  "description": "StockPulse — Target stock monitor with web dashboard and Discord alerts",
+  "main": "stockpulse.js",
+  "scripts": {
+    "start": "node stockpulse.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^2.7.0",
+    "https-proxy-agent": "^5.0.1",
+    "puppeteer": "^22.0.0",
+    "imap-simple": "^5.1.0"
+  }
+}

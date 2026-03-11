@@ -1,0 +1,682 @@
+[
+  {
+    "sku": "89444931",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - 151 Collection - Alakazam ex",
+    "type": "Ex Box",
+    "msrp": 21.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "89444929",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet- 151 Binder Collection",
+    "type": "Binder",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "88897904",
+    "name": "Pokmon Scarlet Violet S3.5 Booster Bundle Box",
+    "type": "Booster Bundle",
+    "msrp": 27.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "88897899",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet 151 Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "89444928",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet- 151 Poster Collection",
+    "type": "Poster",
+    "msrp": 14.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "88897906",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet 151 Ultra-Premium Collection",
+    "type": "UPC",
+    "msrp": 99.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "88897898",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - 151 Collection - Zapdos ex",
+    "type": "Ex Box",
+    "msrp": 21.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95120837",
+    "name": "Ascended Heroes - Komala 2-Pack Blister",
+    "type": "Blister",
+    "msrp": 14.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95082122",
+    "name": "Ascended Heroes - Tangela 2-Pack Blister",
+    "type": "Blister",
+    "msrp": 9.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95120834",
+    "name": "Ascended Heroes Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 26.94,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95173527",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes Collection Erika",
+    "type": "Tech Sticker",
+    "msrp": 9.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95173525",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes Collection Larry",
+    "type": "Tech Sticker",
+    "msrp": 9.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093980",
+    "name": "Ascended Heroes Deluxe Pin - Chikorita",
+    "type": "Pin Collection",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093984",
+    "name": "Ascended Heroes Deluxe Pin - Tepig",
+    "type": "Pin Collection",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093987",
+    "name": "Ascended Heroes Deluxe Pin - Totodile",
+    "type": "Pin Collection",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95082118",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 59.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95120830",
+    "name": "Ascended Heroes Ex Box",
+    "type": "Ex Box",
+    "msrp": 21.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093989",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes First Partners Deluxe Pin Collection",
+    "type": "Pin Collection",
+    "msrp": 29.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95082124",
+    "name": "Ascended Heroes Knockout Collection",
+    "type": "Collection Box",
+    "msrp": 14.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95022094",
+    "name": "Ascended Heroes Mini Tin",
+    "type": "Mini Tin",
+    "msrp": 9.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093988",
+    "name": "Ascended Heroes Poster Collection",
+    "type": "Poster Collection",
+    "msrp": 14.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093982",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes Premium Poster Collection Mega Gardevoir",
+    "type": "Poster Collection",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95093981",
+    "name": "Pokmon Trading Card Game: Mega Evolution Ascended Heroes Premium Poster Collection Mega Lucario",
+    "type": "Poster Collection",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "1007935778",
+    "name": "Pokmon Mega Evolution S2.5 Ascended Heroes Tech Sticker - Charmander",
+    "type": "Tech Sticker",
+    "msrp": 19.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95120822",
+    "name": "Pokmon Trading Card Game : Mega Evolution Ascended Heroes Tech Sticker Collection Gastly",
+    "type": "Tech Sticker",
+    "msrp": 19.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94636856",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletBlack Bolt Binder Collection",
+    "type": "Binder",
+    "msrp": 34.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "94681770",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletBlack Bolt Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 31.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94636862",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Black Bolt Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 59.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94827546",
+    "name": "Pokmon Trading Card Game: Black Kyurem ex  Melmetal ex",
+    "type": "Bundle",
+    "msrp": 49.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "84713762",
+    "name": "Brilliant Stars Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 39.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "88897908",
+    "name": "Pokmon Trading Card Game: Charizard ex Premium Collection",
+    "type": "Premium Collection",
+    "msrp": 39.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "91670547",
+    "name": "Pokmon Trading Card Game: Charizard ex Super-Premium Collection",
+    "type": "Super Premium",
+    "msrp": 79.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95138464",
+    "name": "Pokmon Trading Card Game: Mega Charizard X Tin",
+    "type": "Mini Tin",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94091405",
+    "name": "Pokmon Trading Card Game: Crown Zenith Booster Bundle Box",
+    "type": "Booster Bundle",
+    "msrp": 27.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "87077756",
+    "name": "Crown Zenith Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 49.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681703",
+    "name": "2023 Pokemon Crown Zenith Premium Treasures Morpeko V-Union Box Trading Cards",
+    "type": "Premium Collection",
+    "msrp": 49.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94411712",
+    "name": "Pokmon Trading Card Game: Cynthias Garchomp Ex Premium Collection",
+    "type": "Premium Collection",
+    "msrp": 44.99,
+    "enabled": false,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681760",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Destined Rivals Display Box",
+    "type": "Booster Box",
+    "msrp": 179.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300067",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Destined Rivals Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 29.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300069",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Destined Rivals Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "84600446",
+    "name": "Fusion Strike Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 39.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "87154260",
+    "name": "Lost Origin Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 39.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681773",
+    "name": "Pokmon Trading Card Game:Lugia ex  Latias ex Premium Collection",
+    "type": "Premium Collection",
+    "msrp": 49.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95138474",
+    "name": "Pokmon Trading Card Game: Mega Charizard Y Tin",
+    "type": "Mini Tin",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681763",
+    "name": "Pokmon Trading Card Game:Mega Latias ex Box",
+    "type": "Ex Box",
+    "msrp": 24.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "95000353",
+    "name": "Pokmon Trading Card Game: Mega Lucario ex Figure Collection",
+    "type": "Figure Collection",
+    "msrp": 34.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "94681777",
+    "name": "Pokmon Trading Card Game:Mimikyu ex  Alcremie ex Premium Collection",
+    "type": "Premium Collection",
+    "msrp": 49.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "89432660",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Paldean Fates Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 27.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "89432659",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Paldean Fates Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "90593734",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Paldean Fates Tech Sticker Collection Shiny Fidough",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "90593717",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Paldean Fates Tech Sticker Collection Shiny Greavard",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "90593716",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Paldean Fates Tech Sticker Collection Shiny Maschiff",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95040142",
+    "name": "Pokmon Trading Card Game: Mega EvolutionPhantasmal Flames Booster Display",
+    "type": "Booster Box",
+    "msrp": 179.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95082138",
+    "name": "Pokmon Trading Card Game : Pokmon Day 2026 Collection",
+    "type": "Special Collection",
+    "msrp": 17.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "92698334",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletStellar Crown Booster Display",
+    "type": "Booster Box",
+    "msrp": 179.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300053",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Accessory Pouch Special Collection",
+    "type": "Blister",
+    "msrp": 32.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "94300066",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Binder Collection",
+    "type": "Binder",
+    "msrp": 31.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "93954446",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 31.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "93954435",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 59.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "93803457",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Poster Collection",
+    "type": "Poster",
+    "msrp": 16.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94864079",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - Prismatic Evolutions Premium Figure Collection",
+    "type": "Premium Collection",
+    "msrp": 79.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300072",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Super-Premium Collection",
+    "type": "Super Premium",
+    "msrp": 99.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94336414",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Surprise Box",
+    "type": "Surprise Box",
+    "msrp": 24.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94827540",
+    "name": "Pokmon Trading Card Game: Archaludon ex  Reshiram ex!",
+    "type": "Bundle",
+    "msrp": 49.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "93803439",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Journey Together Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 49.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300074",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Journey Together Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 29.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300080",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Tech Sticker Collection Glaceon",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300075",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Tech Sticker Collection Leafeon",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94300058",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletPrismatic Evolutions Tech Sticker Collection Sylveon",
+    "type": "Tech Sticker",
+    "msrp": 18.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "91619936",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - Shrouded Fable Kingambit Illustration Collection",
+    "type": "Special Collection",
+    "msrp": 21.99,
+    "enabled": false,
+    "autoCheckout": false
+  },
+  {
+    "sku": "86933412",
+    "name": "Pokmon Trading Card Game: Sword  Shield - Silver Tempest Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 39.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "93486336",
+    "name": "Pokmon Scarlet Violet Surging Sparks Booster Trading Cards",
+    "type": "Booster Box",
+    "msrp": 179.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "91619929",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - Surging Sparks Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 27.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "91619922",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet - Surging Sparks Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 49.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "91619960",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet Twilight Masquerade Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 54.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94636851",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletWhite Flare Binder Collection",
+    "type": "Binder",
+    "msrp": 34.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681785",
+    "name": "Pokmon Trading Card Game: Scarlet  VioletWhite Flare Booster Bundle",
+    "type": "Booster Bundle",
+    "msrp": 31.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94636860",
+    "name": "Pokmon Trading Card Game: Scarlet  Violet White Flare Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 59.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95230445",
+    "name": "Pokmon Trading Card Game: Mega Evolution Perfect Order Elite Trainer Box",
+    "type": "ETB",
+    "msrp": 59.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95230447",
+    "name": "Pokmon Mega Evolution S3 Perfect Order Booster Bundle Box",
+    "type": "Booster Bundle",
+    "msrp": 29.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95230446",
+    "name": "Pokmon Trading Card Game: Mega Evolution Perfect Order 3-Booster Blister",
+    "type": "Blister",
+    "msrp": 14.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95252674",
+    "name": "Pokmon Trading Card Game: Mega Evolution Perfect Order Booster Display",
+    "type": "Booster Box",
+    "msrp": 179.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "95225595",
+    "name": "Pokmon Trading Card Game: Mega Evolution Perfect Order Booster Bundle",
+    "type": "Unknown",
+    "msrp": 15.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "94681790",
+    "name": "Pokmon Trading Card Game : Charizard X ex Ultra-Premium Collection",
+    "type": "Unknown",
+    "msrp": 129.99,
+    "enabled": true,
+    "autoCheckout": true
+  },
+  {
+    "sku": "92908274",
+    "name": "Pampers Swaddler 360 Disposable Baby Diapers",
+    "type": "Unknown",
+    "msrp": 9.4941,
+    "enabled": false,
+    "autoCheckout": false
+  }
+]

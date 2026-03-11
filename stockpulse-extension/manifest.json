@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "StockPulse Cookie Sync",
+  "version": "1.0",
+  "description": "Auto-syncs Target.com cookies to StockPulse",
+  "permissions": [
+    "cookies",
+    "alarms",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.target.com/*",
+    "http://*.target.com/*",
+    "http://localhost:3069/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

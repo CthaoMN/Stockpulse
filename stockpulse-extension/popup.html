@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 300px; padding: 16px; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0f14; color: #ccd6e0; }
+  h3 { font-size: 14px; color: #00ff88; margin-bottom: 14px; }
+  .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; border-bottom: 1px solid #0f1a25; }
+  .label { color: #556677; }
+  .val { font-weight: 600; }
+  .ok { color: #00ff88; }
+  .warn { color: #ffaa00; }
+  .err { color: #ff4455; }
+  .status-box { padding: 10px; border-radius: 6px; margin: 10px 0; font-size: 12px; text-align: center; font-weight: 600; }
+  .status-ok { background: #00ff8815; border: 1px solid #00ff8830; color: #00ff88; }
+  .status-warn { background: #ffaa0015; border: 1px solid #ffaa0030; color: #ffaa00; }
+  .status-err { background: #ff445515; border: 1px solid #ff445530; color: #ff4455; }
+  button { width: 100%; background: #00ff8820; border: 1px solid #00ff8840; color: #00ff88; padding: 8px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-top: 10px; }
+  button:hover { background: #00ff8835; }
+  .info { font-size: 10px; color: #334455; margin-top: 10px; text-align: center; }
+</style>
+</head>
+<body>
+  <h3>StockPulse Cookie Sync</h3>
+  <div id="statusBox" class="status-box status-warn">Checking...</div>
+  <div id="details">
+    <div class="row"><span class="label">Access Token</span><span class="val" id="atStatus">-</span></div>
+    <div class="row"><span class="label">Refresh Token</span><span class="val" id="rtStatus">-</span></div>
+    <div class="row"><span class="label">Token Expires</span><span class="val" id="expiry">-</span></div>
+    <div class="row"><span class="label">Cookies</span><span class="val" id="count">-</span></div>
+    <div class="row"><span class="label">StockPulse</span><span class="val" id="spStatus">-</span></div>
+  </div>
+  <button id="syncBtn">Force Sync Now</button>
+  <div class="info">Syncs automatically every 60 seconds</div>
+  <script src="popup.js"></script>
+</body>
+</html>
