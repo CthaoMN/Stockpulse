@@ -5,7 +5,7 @@ Automated Target.com stock monitor and auto-checkout bot for Pokémon TCG produc
 ## How It Works
 
 ```
-Discord stock alert (PokeNotify, Zephyr, etc.)
+Discord stock alert (Pokemon Notifications, Zephyr, etc.)
     ↓ (2s polling)
 StockPulse detects TCIN → verifies stock → queues ATC
     ↓
