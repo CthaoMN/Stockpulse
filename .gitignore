@@ -7,3 +7,6 @@
 /.vs/stock puslee.slnx/FileContentIndex
 /.vs/stock puslee.slnx/v18/.wsuo
 /stockpulse.log
+/.stockpulse-config.json
+/.stockpulse-creds.json
+/.stockpulse-products.json
