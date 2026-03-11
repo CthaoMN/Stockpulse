@@ -1,0 +1,54 @@
+{
+  "DISCORD_WEBHOOK": "",
+  "DISCORD_CHECKOUT_WEBHOOK": "",
+  "DISCORD_CHECKOUT_FAILED_WEBHOOK": "",
+  "ZIP_CODE": "55378",
+  "STORE_ID": "1368",
+  "POLL_INTERVAL_MS": 30000,
+  "MAX_PERCENT_ABOVE_MSRP": 20,
+  "ALERT_COOLDOWN_MS": 120000,
+  "REQUEST_DELAY_MS": 2000,
+  "API_KEY": "",
+  "CHECKOUT_API_KEY": "",
+  "USE_PROXIES": false,
+  "PROXIES": [],
+  "AUTO_ATC": true,
+  "ATC_QTY": 2,
+  "ATC_MAX_RETRIES": 15,
+  "ATC_RETRY_DELAY_MS": 150,
+  "CHECKOUT_MAX_RETRIES": 30,
+  "CHECKOUT_RETRY_DELAY_MS": 200,
+  "AUTO_OPEN_CHECKOUT": false,
+  "MAX_ORDERS_PER_SKU_PER_DAY": 2,
+  "MAX_CHECKS_PER_CYCLE": 10,
+  "DISCORD_BOT_TOKEN": "",
+  "DISCORD_USER_TOKEN": "",
+  "DISCORD_LISTEN_CHANNELS": {
+    "target 10+": {
+      "id": "",
+      "name": "target 10+"
+    }
+  },
+  "DISCORD_ACTIVE_CHANNELS": [
+    "target 10+"
+  ],
+  "DISCORD_LISTEN_ENABLED": true,
+  "DISCORD_POLL_INTERVAL_MS": 2000,
+  "DISCORD_FORWARD_WEBHOOK": "",
+  "DISCORD_LOG_WEBHOOK": "",
+  "DISCORD_COMMAND_CHANNEL_ID": "",
+  "DISCORD_FORWARD_CHANNELS": [
+    {
+      "sourceId": "",
+      "webhook": "",
+      "name": "Channel"
+    },
+    {
+      "sourceId": "",
+      "webhook": "",
+      "name": "poke"
+    }
+  ],
+  "DISCORD_VERIFY_SERVER_ID": "",
+  "DISCORD_VERIFY_ROLE_NAME": "ACO OG"
+}

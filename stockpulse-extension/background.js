@@ -480,7 +480,7 @@ async function executeCheckout(cvv, tabId) {
         } catch(e) {}
       }
 
-      await new Promise(function(r) { setTimeout(r, 200); });
+      await new Promise(function(r) { setTimeout(r, 50); });
     }
   } catch(e) {
     spLog("Checkout error: " + e.message, "error");

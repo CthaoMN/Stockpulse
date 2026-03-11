@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockPulse — Config</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#030508; color:#c8d6e5; font-family:'Segoe UI',system-ui,sans-serif; font-size:13px; padding:20px; }
+  a { color:#4ea8de; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; padding-bottom:12px; border-bottom:1px solid #0f1a25; }
+  .header h1 { font-size:18px; color:#e0e8f0; font-weight:600; }
+  .header h1 span { color:#00ff88; }
+  .nav { display:flex; gap:12px; }
+  .nav a { padding:6px 14px; border:1px solid #1a2a3a; border-radius:4px; font-size:12px; color:#8899aa; }
+  .nav a:hover, .nav a.active { border-color:#00ff8850; color:#00ff88; text-decoration:none; }
+
+  .section { background:#060a0f; border:1px solid #0f1a25; border-radius:6px; padding:16px; margin-bottom:16px; }
+  .section-title { color:#00ff88; font-size:11px; text-transform:uppercase; letter-spacing:1.5px; font-weight:600; margin-bottom:12px; }
+  .section-desc { color:#556677; font-size:11px; margin-bottom:12px; }
+
+  .field { margin-bottom:10px; }
+  .field-label { color:#8899aa; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+  .field-row { display:flex; gap:6px; align-items:center; }
+  .inp { background:#0a1018; border:1px solid #1a2a3a; color:#e0e8f0; padding:7px 10px; border-radius:4px; font-size:12px; font-family:inherit; outline:none; width:100%; }
+  .inp:focus { border-color:#00ff8850; }
+  .inp-sm { width:120px; }
+  .inp-med { width:200px; }
+
+  .btn { padding:6px 14px; border:1px solid #1a2a3a; background:transparent; color:#8899aa; border-radius:4px; cursor:pointer; font-size:11px; font-family:inherit; }
+  .btn:hover { border-color:#4ea8de; color:#4ea8de; }
+  .btn-go { border-color:#00ff8830; color:#00ff88; }
+  .btn-go:hover { border-color:#00ff88; background:#00ff8810; }
+  .btn-danger { border-color:#ff445530; color:#ff4455; }
+  .btn-danger:hover { border-color:#ff4455; background:#ff445510; }
+  .btn-icon { padding:5px 8px; font-size:14px; line-height:1; cursor:pointer; background:none; border:1px solid #1a2a3a; color:#556677; border-radius:4px; }
+  .btn-icon:hover { color:#4ea8de; border-color:#4ea8de; }
+
+  .status { font-size:10px; margin-left:6px; }
+  .status-ok { color:#00ff88; }
+  .status-err { color:#ff4455; }
+
+  .channels-list { display:flex; flex-direction:column; gap:6px; }
+  .channel-row { display:flex; gap:6px; align-items:center; padding:6px 8px; background:#0a1018; border:1px solid #1a2a3a; border-radius:4px; }
+  .channel-row .name { color:#e0e8f0; font-size:12px; flex:1; }
+  .channel-row .id { color:#556677; font-size:10px; font-family:monospace; }
+
+  .save-bar { position:sticky; bottom:0; background:#060a0f; border-top:1px solid #0f1a25; padding:12px 0; display:flex; gap:12px; align-items:center; justify-content:flex-end; }
+  .save-status { color:#00ff88; font-size:11px; opacity:0; transition:opacity 0.3s; }
+  .save-status.show { opacity:1; }
+
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:700px) { .grid-2 { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Stock<span>Pulse</span> Config</h1>
+  <div class="nav">
+    <a href="/">Monitor</a>
+    <a href="/config" class="active">Config</a>
+  </div>
+</div>
+
+<!-- CHECKOUT -->
+<div class="section">
+  <div class="section-title">Checkout</div>
+  <div class="grid-2">
+    <div class="field">
+      <div class="field-label">ATC Quantity</div>
+      <input class="inp inp-sm" id="ATC_QTY" type="number" min="1" max="10" placeholder="2">
+    </div>
+    <div class="field">
+      <div class="field-label">Max Orders Per SKU Per Day</div>
+      <input class="inp inp-sm" id="MAX_ORDERS_PER_SKU_PER_DAY" type="number" min="1" max="10" placeholder="1">
+    </div>
+    <div class="field">
+      <div class="field-label">Target Password</div>
+      <div class="field-row">
+        <input class="inp" id="targetPassword" type="password" placeholder="Enter Target password" autocomplete="new-password" data-lpignore="true">
+        <button class="btn-icon" onclick="toggleVis('targetPassword')">👁</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">CVV</div>
+      <div class="field-row">
+        <input class="inp inp-sm" id="cvv" type="password" maxlength="4" placeholder="CVV" autocomplete="new-password" data-lpignore="true">
+        <button class="btn-icon" onclick="toggleVis('cvv')">👁</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DISCORD CREDENTIALS -->
+<div class="section">
+  <div class="section-title">Discord Credentials</div>
+  <div class="field">
+    <div class="field-label">Discord User Token</div>
+    <div class="field-row">
+      <input class="inp" id="DISCORD_USER_TOKEN" type="password" placeholder="Paste Discord user token">
+      <button class="btn-icon" onclick="toggleVis('DISCORD_USER_TOKEN')">👁</button>
+      <button class="btn" onclick="testToken(this)">Test</button>
+    </div>
+  </div>
+</div>
+
+<!-- DISCORD WEBHOOKS -->
+<!-- DISCORD LISTEN CHANNELS -->
+<div class="section">
+  <div class="section-title">Discord Listen Channels</div>
+  <div class="section-desc">Channels to monitor for stock alerts (triggers ATC + checkout). Paste a Discord channel URL or just the channel ID.</div>
+  <div id="listenChannels" class="channels-list"></div>
+  <div style="margin-top:10px; display:flex; gap:6px; align-items:center;">
+    <input class="inp inp-sm" id="newChannelKey" placeholder="Key (e.g. target_10plus)">
+    <input class="inp" id="newChannelId" placeholder="Channel URL or ID (e.g. https://discord.com/channels/xxx/123)" style="flex:1">
+    <input class="inp inp-med" id="newChannelName" placeholder="Display Name">
+    <button class="btn btn-go" onclick="addListenChannel()">Add</button>
+  </div>
+</div>
+
+<!-- ADVANCED -->
+<div class="section">
+  <div class="section-title">Advanced</div>
+  <div class="grid-2">
+    <div class="field">
+      <div class="field-label">Discord Poll Interval (ms)</div>
+      <input class="inp inp-sm" id="DISCORD_POLL_INTERVAL_MS" type="number" placeholder="2000">
+    </div>
+    <div class="field">
+      <div class="field-label">Alert Cooldown (ms)</div>
+      <input class="inp inp-sm" id="ALERT_COOLDOWN_MS" type="number" placeholder="120000">
+    </div>
+    <div class="field">
+      <div class="field-label">ZIP Code <span style="color:#556677;font-size:9px;text-transform:none">(for stock/price checks)</span></div>
+      <input class="inp inp-sm" id="ZIP_CODE" placeholder="55372">
+    </div>
+    <div class="field">
+      <div class="field-label">Store ID <span style="color:#556677;font-size:9px;text-transform:none">(for stock/price checks)</span></div>
+      <input class="inp inp-sm" id="STORE_ID" placeholder="1368">
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid #0f1a25">
+    <div class="section-desc">Forward-only channels <span style="color:#556677">(optional — copy messages from a channel to your Discord, no ATC)</span></div>
+    <div id="forwardChannels" class="channels-list"></div>
+    <div style="margin-top:8px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+      <input class="inp inp-sm" id="newFwdSourceId" placeholder="Source Channel URL or ID" style="width:250px">
+      <input class="inp" id="newFwdWebhook" placeholder="Destination Webhook URL" style="flex:1;min-width:200px;">
+      <input class="inp inp-sm" id="newFwdName" placeholder="Name">
+      <button class="btn btn-go" onclick="addForwardChannel()">Add</button>
+    </div>
+  </div>
+  <div style="margin-top:12px;padding-top:12px;border-top:1px solid #0f1a25">
+    <div class="section-desc">Optional webhooks</div>
+    <div class="field">
+      <div class="field-label">Stock Alert Forward <span style="color:#556677;font-size:9px;text-transform:none">(optional — forwards stock alerts to your Discord)</span></div>
+      <div class="field-row">
+        <input class="inp" id="DISCORD_FORWARD_WEBHOOK" type="password" placeholder="https://discord.com/api/webhooks/...">
+        <button class="btn-icon" onclick="toggleVis('DISCORD_FORWARD_WEBHOOK')">👁</button>
+        <button class="btn" onclick="testWebhook('DISCORD_FORWARD_WEBHOOK', this)">Test</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Checkout Failed — item in cart <span style="color:#556677;font-size:9px;text-transform:none">(optional — alerts you to manually checkout)</span></div>
+      <div class="field-row">
+        <input class="inp" id="DISCORD_CHECKOUT_FAILED_WEBHOOK" type="password" placeholder="https://discord.com/api/webhooks/...">
+        <button class="btn-icon" onclick="toggleVis('DISCORD_CHECKOUT_FAILED_WEBHOOK')">👁</button>
+        <button class="btn" onclick="testWebhook('DISCORD_CHECKOUT_FAILED_WEBHOOK', this)">Test</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Log Messages <span style="color:#556677;font-size:9px;text-transform:none">(optional — sends errors/warnings to Discord)</span></div>
+      <div class="field-row">
+        <input class="inp" id="DISCORD_LOG_WEBHOOK" type="password" placeholder="https://discord.com/api/webhooks/...">
+        <button class="btn-icon" onclick="toggleVis('DISCORD_LOG_WEBHOOK')">👁</button>
+        <button class="btn" onclick="testWebhook('DISCORD_LOG_WEBHOOK', this)">Test</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-bar">
+  <span class="save-status" id="saveStatus">Saved ✓</span>
+  <button class="btn btn-go" onclick="saveAll()" style="padding:8px 24px;font-size:13px;">Save All</button>
+</div>
+
+<script>
+var config = {};
+
+// Extract channel ID from Discord URL or raw ID
+function parseChannelId(input) {
+  input = (input || "").trim();
+  // Match https://discord.com/channels/SERVER_ID/CHANNEL_ID
+  var match = input.match(/discord\.com\/channels\/\d+\/(\d+)/);
+  if (match) return match[1];
+  // Already a raw ID
+  if (/^\d+$/.test(input)) return input;
+  return input;
+}
+
+// Test webhook — sends a test message directly
+function testWebhook(fieldId, btn) {
+  var url = document.getElementById(fieldId).value.trim();
+  if (!url) { btn.textContent = "Empty!"; btn.style.color = "#ff4455"; setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 2000); return; }
+  btn.textContent = "...";
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: "StockPulse Test",
+      embeds: [{
+        title: "Test: " + fieldId.replace("DISCORD_", "").replace(/_/g, " "),
+        description: "If you see this, the webhook is working!",
+        color: 65280,
+        timestamp: new Date().toISOString(),
+        footer: { text: "StockPulse Config Test" }
+      }]
+    })
+  }).then(function(r) {
+    if (r.ok || r.status === 204) {
+      btn.textContent = "✓ Sent"; btn.style.color = "#00ff88";
+    } else {
+      btn.textContent = "✗ " + r.status; btn.style.color = "#ff4455";
+    }
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 3000);
+  }).catch(function(e) {
+    btn.textContent = "✗ Error"; btn.style.color = "#ff4455";
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 3000);
+  });
+}
+
+// Test Discord token — check if it can read a channel
+function testToken(btn) {
+  var token = document.getElementById("DISCORD_USER_TOKEN").value.trim();
+  if (!token) { btn.textContent = "Empty!"; btn.style.color = "#ff4455"; setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 2000); return; }
+  btn.textContent = "...";
+  fetch("/api/test-discord-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      btn.textContent = "✓ " + d.username; btn.style.color = "#00ff88";
+    } else {
+      btn.textContent = "✗ " + (d.error || "Failed"); btn.style.color = "#ff4455";
+    }
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 4000);
+  }).catch(function() {
+    btn.textContent = "✗ Error"; btn.style.color = "#ff4455";
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 3000);
+  });
+}
+
+// Toggle password visibility
+function toggleVis(id) {
+  var el = document.getElementById(id);
+  el.type = el.type === "password" ? "text" : "password";
+}
+
+// Load config from server
+function loadConfig() {
+  fetch("/api/config/raw").then(function(r) { return r.json(); }).then(function(data) {
+    config = data;
+    var simpleFields = ["ZIP_CODE","STORE_ID","ATC_QTY","MAX_ORDERS_PER_SKU_PER_DAY",
+      "DISCORD_USER_TOKEN","DISCORD_FORWARD_WEBHOOK",
+      "DISCORD_CHECKOUT_FAILED_WEBHOOK","DISCORD_LOG_WEBHOOK",
+      "DISCORD_POLL_INTERVAL_MS","ALERT_COOLDOWN_MS"];
+    simpleFields.forEach(function(f) {
+      var el = document.getElementById(f);
+      if (el && data[f] !== undefined && data[f] !== null) el.value = data[f];
+    });
+    renderListenChannels();
+    renderForwardChannels();
+  });
+
+  // Load password/CVV from credentials
+  fetch("/api/harvester/credentials").then(function(r) { return r.json(); }).then(function(d) {
+    if (d.hasTargetPassword) {
+      document.getElementById("targetPassword").placeholder = "••••••••  (saved)";
+    }
+    if (d.hasCvv) {
+      document.getElementById("cvv").placeholder = "•••  (saved)";
+    }
+  }).catch(function() {});
+}
+
+function renderListenChannels() {
+  var container = document.getElementById("listenChannels");
+  container.innerHTML = "";
+  var channels = config.DISCORD_LISTEN_CHANNELS || {};
+  var active = config.DISCORD_ACTIVE_CHANNELS || [];
+  Object.keys(channels).forEach(function(key) {
+    var ch = channels[key];
+    var isActive = active.indexOf(key) !== -1;
+    var row = document.createElement("div");
+    row.className = "channel-row";
+    row.innerHTML = '<input type="checkbox" ' + (isActive ? "checked" : "") + ' onchange="toggleChannel(\'' + key + '\', this.checked)">'
+      + '<span class="name">' + (ch.name || key) + '</span>'
+      + '<span class="id">' + (ch.id || "") + '</span>'
+      + '<button class="btn-icon btn-danger" onclick="removeListenChannel(\'' + key + '\')" title="Remove">✕</button>';
+    container.appendChild(row);
+  });
+}
+
+function renderForwardChannels() {
+  var container = document.getElementById("forwardChannels");
+  container.innerHTML = "";
+  var channels = config.DISCORD_FORWARD_CHANNELS || [];
+  channels.forEach(function(ch, idx) {
+    var row = document.createElement("div");
+    row.className = "channel-row";
+    row.innerHTML = '<span class="name">' + (ch.name || "Channel " + idx) + '</span>'
+      + '<span class="id">' + (ch.sourceId || "") + '</span>'
+      + '<button class="btn-icon btn-danger" onclick="removeForwardChannel(' + idx + ')" title="Remove">✕</button>';
+    container.appendChild(row);
+  });
+}
+
+function toggleChannel(key, enabled) {
+  if (!config.DISCORD_ACTIVE_CHANNELS) config.DISCORD_ACTIVE_CHANNELS = [];
+  if (enabled && config.DISCORD_ACTIVE_CHANNELS.indexOf(key) === -1) {
+    config.DISCORD_ACTIVE_CHANNELS.push(key);
+  } else if (!enabled) {
+    config.DISCORD_ACTIVE_CHANNELS = config.DISCORD_ACTIVE_CHANNELS.filter(function(k) { return k !== key; });
+  }
+}
+
+function addListenChannel() {
+  var key = document.getElementById("newChannelKey").value.trim();
+  var rawId = document.getElementById("newChannelId").value.trim();
+  var name = document.getElementById("newChannelName").value.trim();
+  var id = parseChannelId(rawId);
+  if (!key || !id) return;
+  if (!config.DISCORD_LISTEN_CHANNELS) config.DISCORD_LISTEN_CHANNELS = {};
+  config.DISCORD_LISTEN_CHANNELS[key] = { id: id, name: name || key };
+  if (!config.DISCORD_ACTIVE_CHANNELS) config.DISCORD_ACTIVE_CHANNELS = [];
+  if (config.DISCORD_ACTIVE_CHANNELS.indexOf(key) === -1) config.DISCORD_ACTIVE_CHANNELS.push(key);
+  document.getElementById("newChannelKey").value = "";
+  document.getElementById("newChannelId").value = "";
+  document.getElementById("newChannelName").value = "";
+  renderListenChannels();
+}
+
+function removeListenChannel(key) {
+  if (!confirm("Remove channel: " + key + "?")) return;
+  delete config.DISCORD_LISTEN_CHANNELS[key];
+  config.DISCORD_ACTIVE_CHANNELS = (config.DISCORD_ACTIVE_CHANNELS || []).filter(function(k) { return k !== key; });
+  renderListenChannels();
+}
+
+function addForwardChannel() {
+  var rawSourceId = document.getElementById("newFwdSourceId").value.trim();
+  var webhook = document.getElementById("newFwdWebhook").value.trim();
+  var name = document.getElementById("newFwdName").value.trim();
+  var sourceId = parseChannelId(rawSourceId);
+  if (!sourceId || !webhook) return;
+  if (!config.DISCORD_FORWARD_CHANNELS) config.DISCORD_FORWARD_CHANNELS = [];
+  config.DISCORD_FORWARD_CHANNELS.push({ sourceId: sourceId, webhook: webhook, name: name || "Channel" });
+  document.getElementById("newFwdSourceId").value = "";
+  document.getElementById("newFwdWebhook").value = "";
+  document.getElementById("newFwdName").value = "";
+  renderForwardChannels();
+}
+
+function removeForwardChannel(idx) {
+  if (!confirm("Remove forward channel?")) return;
+  config.DISCORD_FORWARD_CHANNELS.splice(idx, 1);
+  renderForwardChannels();
+}
+
+function saveAll() {
+  // Gather simple fields
+  var updates = {};
+  var simpleFields = ["ZIP_CODE","STORE_ID","DISCORD_USER_TOKEN","DISCORD_FORWARD_WEBHOOK",
+    "DISCORD_CHECKOUT_FAILED_WEBHOOK","DISCORD_LOG_WEBHOOK"];
+  simpleFields.forEach(function(f) {
+    var el = document.getElementById(f);
+    if (el) updates[f] = el.value.trim();
+  });
+  // Number fields
+  ["ATC_QTY","MAX_ORDERS_PER_SKU_PER_DAY","DISCORD_POLL_INTERVAL_MS","ALERT_COOLDOWN_MS"].forEach(function(f) {
+    var el = document.getElementById(f);
+    if (el && el.value) updates[f] = parseInt(el.value) || 0;
+  });
+  // Channel config
+  updates.DISCORD_LISTEN_CHANNELS = config.DISCORD_LISTEN_CHANNELS || {};
+  updates.DISCORD_ACTIVE_CHANNELS = config.DISCORD_ACTIVE_CHANNELS || [];
+  updates.DISCORD_FORWARD_CHANNELS = config.DISCORD_FORWARD_CHANNELS || [];
+
+  // Save config
+  fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates)
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    // Save credentials (password + CVV) 
+    var pw = document.getElementById("targetPassword").value.trim();
+    var cvvVal = document.getElementById("cvv").value.trim();
+    var credBody = {};
+    if (pw) credBody.targetPassword = pw;
+    if (cvvVal) credBody.cvv = cvvVal;
+    
+    if (Object.keys(credBody).length > 0) {
+      fetch("/api/harvester/credentials", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credBody)
+      }).then(function() {
+        var st = document.getElementById("saveStatus");
+        st.textContent = "All saved ✓" + (pw ? " (pw)" : "") + (cvvVal ? " (cvv)" : "");
+        st.className = "save-status show";
+        setTimeout(function() { st.className = "save-status"; }, 3000);
+      });
+    } else {
+      var st = document.getElementById("saveStatus");
+      st.textContent = "Config saved ✓";
+      st.className = "save-status show";
+      setTimeout(function() { st.className = "save-status"; }, 2000);
+    }
+  });
+}
+
+loadConfig();
+
+// Clear Chrome autofill junk after a short delay
+setTimeout(function() {
+  var pw = document.getElementById("targetPassword");
+  var cv = document.getElementById("cvv");
+  if (pw && !pw.dataset.userSet) pw.value = "";
+  if (cv && !cv.dataset.userSet) cv.value = "";
+}, 500);
+</script>
+</body>
+</html>

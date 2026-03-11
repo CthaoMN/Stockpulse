@@ -36,68 +36,60 @@ function getProxyAgent() {
 }
 
 // ── CONFIG ─────────────────────────────────────────────────────
+var CONFIG_FILE = path.join(__dirname, ".stockpulse-config.json");
+
 var CONFIG = {
   DISCORD_WEBHOOK: "",
-  DISCORD_CHECKOUT_WEBHOOK: "",
+  DISCORD_CHECKOUT_WEBHOOK: "https://discord.com/api/webhooks/1481023001423122473/oCWaUEn3vhlw1tAlGiN26O8ePQHe26uSL17K_m2dUXOQG-DxKnGVKIdC39HQSXpZAd8w",  // Hardcoded — all users post here
   DISCORD_CHECKOUT_FAILED_WEBHOOK: "",
   ZIP_CODE: "55372",
   STORE_ID: "1368",
-  POLL_INTERVAL_MS: 30000,   // 30s between cycles (Discord is primary trigger)
+  POLL_INTERVAL_MS: 30000,
   MAX_PERCENT_ABOVE_MSRP: 20,
   ALERT_COOLDOWN_MS: 120000,
-  REQUEST_DELAY_MS: 2000,    // 2s between SKUs
-  API_KEY: "",
-  CHECKOUT_API_KEY: "",
-
-  // ── PROXY CONFIG ─────────────────────────────────────────
-  // Set USE_PROXIES to true and add your proxy list below.
-  // Supports rotating gateway (single URL) or a list of proxies.
-  //
-  // Format: "http://username:password@host:port"
-  //
-  // Examples:
-  //   DataImpulse:  "http://YOUR_USER:YOUR_PASS@gw.dataimpulse.com:823"
-  //   Smartproxy:   "http://USER:PASS@gate.smartproxy.com:7777"
-  //   IPRoyal:      "http://USER:PASS@geo.iproyal.com:12321"
-  //   Oxylabs:      "http://USER:PASS@pr.oxylabs.io:7777"
-  //   Geonode:      "http://USER:PASS@proxy.geonode.io:9000"
-  //
-  // If your provider gives a rotating gateway, just put one URL.
-  // If you have a list of IPs, put them all and they'll rotate.
-  USE_PROXIES: false, // Enable if using self-monitoring (Start button)
-  PROXIES: [
-    "http://sphmf8d2b1:y1Ks%7EgiOcgC53U1frv@us.decodo.com:10000",
-  ],
-  // ── AUTO ADD-TO-CART ──────────────────────────────────────────
-  // When stock is detected, instantly add to cart via API using
-  // your harvested Target session cookies. Then sends Discord
-  // alert with direct checkout link.
+  REQUEST_DELAY_MS: 2000,
+  API_KEY: "9f36aeafbe60771e321a7cc95a78140772ab3e96",
+  CHECKOUT_API_KEY: "e59ce3b531b2c39afb2e2b8a71ff10113aac2a14",
+  USE_PROXIES: false,
+  PROXIES: [],
   AUTO_ATC: true,
-  ATC_QTY: 2,                // Default quantity per ATC
-  ATC_MAX_RETRIES: 15,       // Retry ATC aggressively
-  ATC_RETRY_DELAY_MS: 150,   // 150ms — faster than human clicking
-  CHECKOUT_MAX_RETRIES: 30,  // Keep hammering checkout for 30 attempts
-  CHECKOUT_RETRY_DELAY_MS: 200, // 200ms — matches Enter-spam speed
-  AUTO_OPEN_CHECKOUT: false,  // No manual browser — fully automated
-  MAX_ORDERS_PER_SKU_PER_DAY: 1,  // Safeguard: max 1 auto-checkout per item per day  // Open checkout in your browser after ATC
-  MAX_CHECKS_PER_CYCLE: 10,  // 10 SKUs per cycle, rotates through all
-  // ── DISCORD LISTENER ─────────────────────────────────────────
-  DISCORD_BOT_TOKEN: "",  // Not used — using user token instead
+  ATC_QTY: 2,
+  ATC_MAX_RETRIES: 15,
+  ATC_RETRY_DELAY_MS: 150,
+  CHECKOUT_MAX_RETRIES: 30,
+  CHECKOUT_RETRY_DELAY_MS: 200,
+  AUTO_OPEN_CHECKOUT: false,
+  MAX_ORDERS_PER_SKU_PER_DAY: 1,
+  MAX_CHECKS_PER_CYCLE: 10,
+  DISCORD_BOT_TOKEN: "",
   DISCORD_USER_TOKEN: "",
-  DISCORD_LISTEN_CHANNELS: {
-    "target_10plus": { id: "1387155900535541770", name: "Target (10+ Stock)" },
-  },
-  DISCORD_ACTIVE_CHANNELS: ["target_10plus"],
-  DISCORD_LISTEN_ENABLED: true,
+  DISCORD_LISTEN_CHANNELS: {},
+  DISCORD_ACTIVE_CHANNELS: [],
+  DISCORD_LISTEN_ENABLED: false,
   DISCORD_POLL_INTERVAL_MS: 2000,
   DISCORD_FORWARD_WEBHOOK: "",
   DISCORD_LOG_WEBHOOK: "",
   DISCORD_COMMAND_CHANNEL_ID: "",
-  // Forward-only channels — just copy messages, no ATC
-  DISCORD_FORWARD_CHANNELS: [
-    { sourceId: "", webhook: "", name: "Announcements" },
-  ],
+  DISCORD_FORWARD_CHANNELS: [],
+  // Role verification — user must be in this server with this role
+  DISCORD_VERIFY_SERVER_ID: "1481014372318056704",
+  DISCORD_VERIFY_ROLE_NAME: "ACO OG",
 };
+
+// Load saved config
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      var saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+      Object.keys(saved).forEach(function(k) { CONFIG[k] = saved[k]; });
+      console.log("  Config loaded from " + CONFIG_FILE);
+    }
+  } catch(e) { console.log("  Config load error: " + e.message); }
+}
+function saveConfig() {
+  try { fs.writeFileSync(CONFIG_FILE, JSON.stringify(CONFIG, null, 2)); } catch(e) {}
+}
+loadConfig();
 
 // ── SKU DATABASE ───────────────────────────────────────────────
 var SKU_LIST = [
@@ -209,8 +201,12 @@ function loadCredentials() {
   try {
     if (fs.existsSync(CREDS_FILE)) {
       var data = JSON.parse(fs.readFileSync(CREDS_FILE, "utf8"));
-      if (data.cvv) credentials.cvv = data.cvv;
-      if (data.savedCookies) { targetCookies = data.savedCookies; }
+      Object.keys(data).forEach(function(k) {
+        if (k === "savedCookies") { targetCookies = data.savedCookies; }
+        else { credentials[k] = data[k]; }
+      });
+      if (credentials.cvv) addLog("CVV loaded from disk", "system");
+      if (credentials.targetPassword) addLog("Target password loaded from disk", "system");
     }
   } catch(e) {}
 }
@@ -275,15 +271,35 @@ function loadProductState() {
 
 loadProductState();
 
+// Clean up existing product names
+products.forEach(function(p) {
+  p.name = p.name
+    .replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "")
+    .replace(/^Pok.*?mon TCG[:\s]*/i, "")
+    .replace(/^Pokemon\s+/i, "")
+    .replace(/&#\d+;/g, "")
+    .trim();
+});
+saveProductState();
+
+// Log file — rotates daily
+var LOG_FILE = path.join(__dirname, "stockpulse.log");
+var logStream = fs.createWriteStream(LOG_FILE, { flags: "a" });
+
 function addLog(msg, type) {
   type = type || "info";
   logs.push({ msg: msg, type: type, time: new Date().toISOString() });
   if (logs.length > 500) logs.splice(0, logs.length - 500);
   var t = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  var d = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit" });
   console.log("  " + t + "  [" + type + "] " + msg);
+  logStream.write(d + " " + t + "  [" + type + "] " + msg + "\n");
 
   // Send important logs to Discord log channel
   if (CONFIG.DISCORD_LOG_WEBHOOK && (type === "success" || type === "error" || type === "warn")) {
+    // Skip noisy extension poll errors
+    if (msg.indexOf("Queue processor error: Failed to fetch") !== -1) return;
+    if (msg.indexOf("Cookies received") !== -1) return;
     var emoji = type === "success" ? "✅" : type === "error" ? "❌" : "⚠️";
     fetch(CONFIG.DISCORD_LOG_WEBHOOK, {
       method: "POST",
@@ -644,8 +660,8 @@ async function checkSingleSku(sku) {
           var item = product.item;
           if (item.product_description && item.product_description.title) {
             result.title = item.product_description.title
-              .replace(/^Pok[eé]mon Trading Card Game:\s*/i, "")
-              .replace(/^Pok[eé]mon TCG:\s*/i, "")
+              .replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "")
+              .replace(/^Pok.*?mon TCG[:\s]*/i, "")
               .trim();
           }
           if (item.primary_seller && item.primary_seller.name) {
@@ -772,6 +788,37 @@ app.get("/", function(req, res) {
   res.sendFile(path.join(__dirname, "dashboard.html"));
 });
 
+app.get("/config", function(req, res) {
+  res.sendFile(path.join(__dirname, "config.html"));
+});
+
+// Config API — get all config (mask sensitive values)
+app.get("/api/config", function(req, res) {
+  var masked = JSON.parse(JSON.stringify(CONFIG));
+  // Show last 8 chars of webhooks/tokens for verification
+  function mask(val) {
+    if (!val || typeof val !== "string" || val.length < 12) return val ? "••••" : "";
+    return "••••" + val.substring(val.length - 8);
+  }
+  masked._raw = JSON.parse(JSON.stringify(CONFIG)); // full values for show/hide
+  res.json(masked);
+});
+
+app.get("/api/config/raw", function(req, res) {
+  res.json(CONFIG);
+});
+
+app.post("/api/config", function(req, res) {
+  var updates = req.body || {};
+  var protected_keys = ["DISCORD_CHECKOUT_WEBHOOK", "DISCORD_VERIFY_SERVER_ID", "DISCORD_VERIFY_ROLE_NAME"];
+  Object.keys(updates).forEach(function(k) {
+    if (k in CONFIG && protected_keys.indexOf(k) === -1) CONFIG[k] = updates[k];
+  });
+  saveConfig();
+  addLog("Config updated: " + Object.keys(updates).join(", "), "system");
+  res.json({ ok: true });
+});
+
 app.get("/api/state", function(req, res) {
   res.json({
     products: products,
@@ -792,13 +839,31 @@ app.get("/api/state", function(req, res) {
   });
 });
 
-app.post("/api/start", function(req, res) {
-  if (!monitorRunning) { monitorRunning = true; startTime = Date.now(); addLog("Monitor STARTED (Discord listener active)", "system"); }
+app.post("/api/start", async function(req, res) {
+  if (!monitorRunning) {
+    // Verify Discord role before starting
+    if (CONFIG.DISCORD_VERIFY_SERVER_ID && CONFIG.DISCORD_VERIFY_ROLE_NAME) {
+      addLog("Verifying Discord membership...", "system");
+      var verify = await verifyDiscordRole();
+      if (!verify.ok) {
+        addLog("ACCESS DENIED: " + verify.error, "error");
+        return res.json({ ok: false, error: verify.error });
+      }
+      addLog("✓ Verified: " + verify.username + " has role '" + verify.role + "'", "success");
+    }
+    monitorRunning = true;
+    startTime = Date.now();
+    CONFIG.DISCORD_LISTEN_ENABLED = true;
+    startDiscordListener();
+    addLog("Monitor STARTED — Discord listener active", "system");
+  }
   res.json({ ok: true });
 });
 
 app.post("/api/stop", function(req, res) {
-  monitorRunning = false; addLog("Monitor STOPPED", "system");
+  monitorRunning = false;
+  CONFIG.DISCORD_LISTEN_ENABLED = false;
+  addLog("Monitor STOPPED — Discord listener paused", "system");
   res.json({ ok: true });
 });
 
@@ -873,7 +938,7 @@ async function autoDetectAllMsrps() {
         if (oldMsrp !== result.price) { updated++; addLog("MSRP " + p.sku + ": $" + oldMsrp + " -> $" + result.price + " (" + p.name + ")", "info"); }
       }
       if (result.title) {
-        var cleanTitle = result.title.replace(/^Pok[eé]mon Trading Card Game:\s*/i, "").replace(/^Pok[eé]mon TCG:\s*/i, "").replace(/^Pokemon\s+/i, "").replace(/&#\d+;/g, "").trim();
+        var cleanTitle = result.title.replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "").replace(/^Pok.*?mon TCG[:\s]*/i, "").replace(/^Pokemon\s+/i, "").replace(/&#\d+;/g, "").trim();
         if (cleanTitle) p.name = cleanTitle;
         titled++;
       }
@@ -904,20 +969,18 @@ app.post("/api/harvester/credentials", function(req, res) {
   if (b.imapPassword) credentials.imapPassword = b.imapPassword;
   if (b.cvv) credentials.cvv = b.cvv;
   saveCredentials();
-  addLog("Credentials saved", "system");
+  var saved = [];
+  if (b.targetPassword) saved.push("password");
+  if (b.cvv) saved.push("cvv");
+  if (b.targetEmail) saved.push("email");
+  addLog("Credentials saved: " + (saved.length ? saved.join(", ") : "other"), "system");
   res.json({ ok: true });
 });
 
 app.get("/api/harvester/credentials", function(req, res) {
   res.json({
-    targetEmail: credentials.targetEmail || "",
-    targetPassword: credentials.targetPassword ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "",
     hasTargetPassword: !!credentials.targetPassword,
-    imapHost: credentials.imapHost || "imap.gmail.com",
-    imapPort: credentials.imapPort || 993,
-    imapEmail: credentials.imapEmail || "",
-    imapPassword: credentials.imapPassword ? "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022" : "",
-    hasImapPassword: !!credentials.imapPassword,
+    hasCvv: !!credentials.cvv,
   });
 });
 
@@ -1123,8 +1186,8 @@ app.post("/api/add-product", async function(req, res) {
         if (scrapeResult.price) msrp = scrapeResult.price;
         if (scrapeResult.title) {
           name = scrapeResult.title
-            .replace(/^Pok[eé]mon Trading Card Game:\s*/i, "")
-            .replace(/^Pok[eé]mon TCG:\s*/i, "")
+            .replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "")
+            .replace(/^Pok.*?mon TCG[:\s]*/i, "")
             .replace(/^Pokemon\s+/i, "")
             .replace(/&#\d+;/g, "")
             .trim();
@@ -1187,8 +1250,8 @@ app.post("/api/add-product", async function(req, res) {
                 var pdpTitle = pdpItem.product_description.title || "";
                 if (pdpTitle && name.indexOf("Unknown") === 0) {
                   name = pdpTitle
-                    .replace(/^Pok[eé]mon Trading Card Game:\s*/i, "")
-                    .replace(/^Pok[eé]mon TCG:\s*/i, "")
+                    .replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "")
+                    .replace(/^Pok.*?mon TCG[:\s]*/i, "")
                     .replace(/^Pokemon\s+/i, "")
                     .replace(/&#\d+;/g, "")
                     .replace(/<[^>]+>/g, "")
@@ -1343,6 +1406,24 @@ app.get("/api/target-password", function(req, res) {
   res.json({ password: credentials.targetPassword || "" });
 });
 
+app.post("/api/test-discord-token", async function(req, res) {
+  var token = (req.body || {}).token;
+  if (!token) return res.json({ ok: false, error: "No token" });
+  try {
+    var r = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { "Authorization": token }
+    });
+    if (r.ok) {
+      var user = await r.json();
+      res.json({ ok: true, username: user.username + "#" + user.discriminator });
+    } else {
+      res.json({ ok: false, error: r.status + " " + r.statusText });
+    }
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
 app.post("/api/browser-log", function(req, res) {
   var msg = req.body.msg || "";
   var type = req.body.type || "system";
@@ -1418,6 +1499,47 @@ function getActiveChannelIds() {
   return ids;
 }
 
+// ── DISCORD ROLE VERIFICATION ───────────────────────────────────
+async function verifyDiscordRole() {
+  if (!CONFIG.DISCORD_USER_TOKEN || !CONFIG.DISCORD_VERIFY_SERVER_ID || !CONFIG.DISCORD_VERIFY_ROLE_NAME) {
+    return { ok: false, error: "Missing token or server/role config" };
+  }
+  try {
+    // Get current user
+    var meRes = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: { "Authorization": CONFIG.DISCORD_USER_TOKEN }
+    });
+    if (!meRes.ok) return { ok: false, error: "Invalid Discord token (" + meRes.status + ")" };
+    var me = await meRes.json();
+
+    // Get user's member info in the server
+    var memberRes = await fetch("https://discord.com/api/v10/users/@me/guilds/" + CONFIG.DISCORD_VERIFY_SERVER_ID + "/member", {
+      headers: { "Authorization": CONFIG.DISCORD_USER_TOKEN }
+    });
+    if (!memberRes.ok) return { ok: false, error: "Not a member of the required Discord server" };
+    var member = await memberRes.json();
+
+    // Get server roles to find role ID by name
+    var rolesRes = await fetch("https://discord.com/api/v10/guilds/" + CONFIG.DISCORD_VERIFY_SERVER_ID + "/roles", {
+      headers: { "Authorization": CONFIG.DISCORD_USER_TOKEN }
+    });
+    if (!rolesRes.ok) return { ok: false, error: "Cannot read server roles" };
+    var roles = await rolesRes.json();
+
+    var targetRole = roles.find(function(r) { return r.name === CONFIG.DISCORD_VERIFY_ROLE_NAME; });
+    if (!targetRole) return { ok: false, error: "Role '" + CONFIG.DISCORD_VERIFY_ROLE_NAME + "' not found in server" };
+
+    // Check if user has the role
+    if (member.roles && member.roles.indexOf(targetRole.id) !== -1) {
+      return { ok: true, username: me.username, role: targetRole.name };
+    } else {
+      return { ok: false, error: "User " + me.username + " does not have role '" + CONFIG.DISCORD_VERIFY_ROLE_NAME + "'" };
+    }
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 function startDiscordListener() {
   if (!CONFIG.DISCORD_USER_TOKEN) {
     console.log("  Discord listener: disabled (no user token)");
@@ -1440,6 +1562,7 @@ function startDiscordListener() {
 
   // Poll for new messages across all active channels
   discordPollInterval = setInterval(async function() {
+    if (!CONFIG.DISCORD_LISTEN_ENABLED) return;
     var activeIds = getActiveChannelIds();
 
     for (var ci = 0; ci < activeIds.length; ci++) {
@@ -1738,6 +1861,7 @@ function startDiscordListener() {
 
           if (!lastMessageIds[fwd.sourceId]) {
             lastMessageIds[fwd.sourceId] = fMsgs[fMsgs.length - 1].id;
+            addLog("Forward channel ready: " + fwd.name, "system");
             continue;
           }
 

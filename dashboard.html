@@ -75,8 +75,6 @@ tr.row-alert td{background:#00ff8808}tr.row-instock td{background:#001a0f08}
     <button class="btn" id="allOnBtn">All On</button>
     <button class="btn" id="allOffBtn">All Off</button>
     <button class="btn" id="scanBtn">Scan MSRPs</button>
-    <span style="color:#556677;font-size:11px;margin-left:8px">Qty:</span>
-    <input class="inp" id="globalQty" type="number" min="1" max="10" value="2" style="width:45px;text-align:center;padding:2px 4px">
   </div>
   <div class="ctrl">
     <input class="inp" id="addUrl" placeholder="Paste Target URL or TCIN..." style="flex:1;min-width:300px">
@@ -86,34 +84,11 @@ tr.row-alert td{background:#00ff8808}tr.row-instock td{background:#001a0f08}
   <div class="ctrl" id="harvesterBar">
     <span style="color:#556677;font-size:11px">Extension:</span>
     <span id="harvesterStatus" style="font-size:11px;font-weight:600;color:#ff4455">checking...</span>
-    <button class="btn" id="settingsToggle" style="border-color:#556677">Settings</button>
+    <a href="/config" class="btn" style="border:1px solid #556677;padding:4px 10px;border-radius:4px;color:#8899aa;text-decoration:none;font-size:11px">Config</a>
   </div>
   <div class="ctrl" id="discordBar" style="gap:12px">
     <span style="color:#556677;font-size:11px">Discord Listener:</span>
     <span id="discordChannels" style="display:flex;gap:8px;flex-wrap:wrap"></span>
-  </div>
-  <div id="settingsPanel" style="display:none;background:#060a0f;border:1px solid #0f1a25;border-radius:6px;padding:14px;margin-top:6px">
-    <div style="color:#8899aa;font-size:10px;text-transform:uppercase;margin-bottom:8px;letter-spacing:1px">Extension Status</div>
-    <div style="color:#556677;font-size:10px;margin-bottom:10px">
-      The Chrome extension auto-syncs your Target session. Just stay logged into target.com.
-    </div>
-    <div id="extStatus" style="padding:8px;border-radius:4px;font-size:12px;margin-bottom:12px;background:#00ff8810;border:1px solid #00ff8830;color:#00ff88">Checking...</div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap">
-      <div style="min-width:200px">
-        <div style="color:#8899aa;font-size:10px;text-transform:uppercase;margin-bottom:8px;letter-spacing:1px">Auto-Checkout</div>
-        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-          <input class="inp" id="cfgTargetPw" placeholder="Target password" type="password" style="width:180px" autocomplete="off">
-          <button class="btn" id="saveTargetPwBtn">Save Password</button>
-          <span id="pwStatus" style="font-size:10px;color:#557766"></span>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="inp" id="cfgCvv" placeholder="CVV" type="password" style="width:80px" maxlength="4" autocomplete="off">
-          <button class="btn" id="saveCvvBtn">Save CVV</button>
-          <span id="cvvStatus" style="font-size:10px;color:#557766"></span>
-        </div>
-      </div>
-    </div>
-    <span id="credStatus" style="font-size:10px;color:#557766;margin-top:6px;display:block"></span>
   </div>
   <div class="sb" id="statsBar"></div>
   <div class="pills" id="pills"></div>
@@ -182,9 +157,9 @@ function render() {
   if (!state) return;
 
   // Update qty display
-  var qtyEl = document.getElementById("globalQty");
-  if (qtyEl && state.atcQty && qtyEl !== document.activeElement) {
-    qtyEl.value = state.atcQty;
+  var qtyEl = document.getElementById("globalQtyDisplay");
+  if (qtyEl && state.atcQty) {
+    qtyEl.textContent = state.atcQty;
   }
 
   // Update harvester status
@@ -207,18 +182,6 @@ function render() {
       var ml = Math.floor((state.tokenExpiry - Date.now()) / 60000);
       if (ml <= 30) hEl.style.color = "#ffaa00";
       if (ml <= 0) hEl.style.color = "#ff4455";
-    }
-  }
-
-  // Update extension status in settings panel
-  var extEl = document.getElementById("extStatus");
-  if (extEl) {
-    if (hStatus === "ready") {
-      extEl.textContent = "Connected — extension syncing cookies";
-      extEl.style.background = "#00ff8810"; extEl.style.borderColor = "#00ff8830"; extEl.style.color = "#00ff88";
-    } else {
-      extEl.textContent = "Not connected — install extension and open target.com";
-      extEl.style.background = "#ff445510"; extEl.style.borderColor = "#ff445530"; extEl.style.color = "#ff4455";
     }
   }
 
@@ -526,7 +489,10 @@ function doRender() {
 // Event listeners
 document.getElementById("startBtn").addEventListener("click", function() {
   if (state && state.stats.running) fetch("/api/stop", {method:"POST"}).then(fetchState);
-  else fetch("/api/start", {method:"POST"}).then(fetchState);
+  else fetch("/api/start", {method:"POST"}).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.error) alert("ACCESS DENIED: " + d.error);
+    fetchState();
+  });
 });
 
 document.getElementById("testBtn").addEventListener("click", function() {
@@ -542,55 +508,8 @@ document.getElementById("allOnBtn").addEventListener("click", function() {
   fetch("/api/toggle-all", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({enabled:true})}).then(fetchState);
 });
 
-document.getElementById("globalQty").addEventListener("change", function() {
-  var qty = parseInt(this.value) || 2;
-  if (qty < 1) qty = 1;
-  if (qty > 10) qty = 10;
-  this.value = qty;
-  fetch("/api/set-qty", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({qty:qty})});
-});
-
 document.getElementById("allOffBtn").addEventListener("click", function() {
   fetch("/api/toggle-all", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({enabled:false})}).then(fetchState);
-});
-
-document.getElementById("settingsToggle").addEventListener("click", function() {
-  var panel = document.getElementById("settingsPanel");
-  panel.style.display = panel.style.display === "none" ? "" : "none";
-  if (panel.style.display !== "none") {
-    fetch("/api/harvester/credentials").then(function(r) { return r.json(); }).then(function(d) {
-      document.getElementById("cfgImapHost").value = d.imapHost || "imap.gmail.com";
-      document.getElementById("cfgImapPort").value = d.imapPort || 993;
-      document.getElementById("cfgImapEmail").value = d.imapEmail || "";
-      document.getElementById("cfgImapPass").value = "";
-      document.getElementById("cfgImapPass").placeholder = d.hasImapPassword ? "••••••••  (saved)" : "IMAP app password";
-    });
-  }
-});
-
-document.getElementById("saveTargetPwBtn").addEventListener("click", function() {
-  var pw = document.getElementById("cfgTargetPw").value.trim();
-  if (!pw) return;
-  fetch("/api/harvester/credentials", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({targetPassword:pw})})
-    .then(function() {
-      document.getElementById("pwStatus").textContent = "Saved ✓";
-      document.getElementById("pwStatus").style.color = "#00ff88";
-      document.getElementById("cfgTargetPw").value = "";
-      document.getElementById("cfgTargetPw").placeholder = "••••••••  (saved)";
-    });
-});
-
-document.getElementById("saveCvvBtn").addEventListener("click", function() {
-  var cvv = document.getElementById("cfgCvv").value.trim();
-  if (!cvv) return;
-  fetch("/api/harvester/credentials", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({cvv:cvv})})
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      document.getElementById("cfgCvv").value = "";
-      document.getElementById("cfgCvv").placeholder = "••• (saved)";
-      document.getElementById("cvvStatus").textContent = "Saved";
-      document.getElementById("cvvStatus").style.color = "#00ff88";
-    });
 });
 
 document.getElementById("scanBtn").addEventListener("click", function() {
