@@ -10,3 +10,4 @@
 /.stockpulse-config.json
 /.stockpulse-creds.json
 /.stockpulse-products.json
+*.sqlite-journal

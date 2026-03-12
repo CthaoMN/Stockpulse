@@ -69,7 +69,6 @@ tr.row-alert td{background:#00ff8808}tr.row-instock td{background:#001a0f08}
   </div>
   <div class="ctrl">
     <button class="btn btn-go" id="startBtn">&#9654; Start</button>
-    <button class="btn btn-test" id="testBtn">Test Discord</button>
     <input class="inp" id="searchBox" placeholder="Search name or SKU...">
     <select class="sel" id="typeFilter"><option value="all">All Types</option></select>
     <button class="btn" id="allOnBtn">All On</button>
@@ -84,6 +83,7 @@ tr.row-alert td{background:#00ff8808}tr.row-instock td{background:#001a0f08}
   <div class="ctrl" id="harvesterBar">
     <span style="color:#556677;font-size:11px">Extension:</span>
     <span id="harvesterStatus" style="font-size:11px;font-weight:600;color:#ff4455">checking...</span>
+    <a href="/history" class="btn" style="border:1px solid #556677;padding:4px 10px;border-radius:4px;color:#8899aa;text-decoration:none;font-size:11px">History</a>
     <a href="/config" class="btn" style="border:1px solid #556677;padding:4px 10px;border-radius:4px;color:#8899aa;text-decoration:none;font-size:11px">Config</a>
   </div>
   <div class="ctrl" id="discordBar" style="gap:12px">
@@ -493,15 +493,6 @@ document.getElementById("startBtn").addEventListener("click", function() {
     if (d.error) alert("ACCESS DENIED: " + d.error);
     fetchState();
   });
-});
-
-document.getElementById("testBtn").addEventListener("click", function() {
-  fetch("/api/test-discord", {method:"POST"})
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      if (d.ok) alert("Test sent! Check your Discord.");
-      else alert("Failed: " + (d.error || "unknown"));
-    });
 });
 
 document.getElementById("allOnBtn").addEventListener("click", function() {

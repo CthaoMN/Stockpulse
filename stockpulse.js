@@ -325,10 +325,26 @@ function canOrderToday(sku) {
   var today = new Date().toISOString().split("T")[0];
   var record = dailyOrders[sku];
   if (!record || record.date !== today) {
-    return true; // No orders today or different day
+    return true;
   }
   return record.count < CONFIG.MAX_ORDERS_PER_SKU_PER_DAY;
 }
+
+// Purchase history — persists to disk
+var HISTORY_FILE = path.join(__dirname, ".stockpulse-history.json");
+var purchaseHistory = [];
+
+function loadHistory() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) {
+      purchaseHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8"));
+    }
+  } catch(e) {}
+}
+function saveHistory() {
+  try { fs.writeFileSync(HISTORY_FILE, JSON.stringify(purchaseHistory, null, 2)); } catch(e) {}
+}
+loadHistory();
 
 function recordOrder(sku) {
   var today = new Date().toISOString().split("T")[0];
@@ -337,6 +353,20 @@ function recordOrder(sku) {
   } else {
     dailyOrders[sku].count++;
   }
+  
+  // Add to purchase history
+  var product = products.find(function(p) { return p.sku === sku; });
+  purchaseHistory.push({
+    sku: sku,
+    name: product ? product.name : "Unknown",
+    type: product ? product.type : "Unknown",
+    price: product ? product.msrp : 0,
+    qty: CONFIG.ATC_QTY || 2,
+    total: (product ? product.msrp : 0) * (CONFIG.ATC_QTY || 2),
+    timestamp: new Date().toISOString(),
+    date: today,
+  });
+  saveHistory();
 }
 
 
@@ -800,6 +830,14 @@ app.get("/", function(req, res) {
 
 app.get("/config", function(req, res) {
   res.sendFile(path.join(__dirname, "config.html"));
+});
+
+app.get("/history", function(req, res) {
+  res.sendFile(path.join(__dirname, "history.html"));
+});
+
+app.get("/api/history", function(req, res) {
+  res.json(purchaseHistory);
 });
 
 // Config API — get all config (mask sensitive values)
@@ -1511,6 +1549,45 @@ app.post("/api/discord-alert", async function(req, res) {
   res.json({ ok: true, processed: tcins.length });
 });
 
+// Re-order: after successful checkout, re-queue same items if daily limit allows
+var lastOrderedSkus = []; // Track what was just ordered
+
+app.post("/api/reorder", function(req, res) {
+  if (!lastOrderedSkus || lastOrderedSkus.length === 0) {
+    return res.json({ ok: true, queued: 0, msg: "No recent orders to re-queue" });
+  }
+  
+  var queued = 0;
+  if (!pendingAtcQueue) pendingAtcQueue = [];
+  
+  lastOrderedSkus.forEach(function(sku) {
+    var product = products.find(function(p) { return p.sku === sku; });
+    if (!product) return;
+    if (!product.enabled || !product.autoCheckout) return;
+    if (!canOrderToday(sku)) {
+      addLog("Re-order: " + product.name + " — daily limit reached (" + CONFIG.MAX_ORDERS_PER_SKU_PER_DAY + ")", "warn");
+      return;
+    }
+    // Skip stock check — ATC itself will tell us if OOS
+    if (!pendingAtcQueue.find(function(q) { return q.sku === sku; })) {
+      pendingAtcQueue.push({ sku: sku, qty: CONFIG.ATC_QTY || 2, product: product });
+      addLog("═══ RE-ORDER QUEUED (instant): " + product.name + " x" + CONFIG.ATC_QTY + " ═══", "success");
+      queued++;
+    }
+  });
+  
+  if (queued > 0) {
+    // Queue checkout after ATCs
+    setTimeout(function() {
+      if (credentials.cvv) {
+        pendingCheckout = { cvv: credentials.cvv, timestamp: Date.now(), status: "pending" };
+      }
+    }, 5000);
+  }
+  
+  res.json({ ok: true, queued: queued });
+});
+
 app.get("/api/browser-atc/pending", function(req, res) {
   // Serve from queue if available
   if (pendingAtcQueue && pendingAtcQueue.length > 0) {
@@ -1533,6 +1610,9 @@ app.post("/api/browser-atc/result", function(req, res) {
     pendingAtc.response = req.body;
     if (req.body.success) {
       addLog("BROWSER ATC SUCCESS: " + pendingAtc.sku + " x" + pendingAtc.qty, "success");
+      // Mark product as recently ATC'd for re-order tracking
+      var atcProduct = products.find(function(p) { return p.sku === pendingAtc.sku; });
+      if (atcProduct) atcProduct._lastAtcTime = Date.now();
       // Queue checkout for the extension to handle
       if (credentials.cvv) {
         var product = products.find(function(p) { return p.sku === pendingAtc.sku; });
@@ -1626,11 +1706,24 @@ app.post("/api/browser-checkout/result", function(req, res) {
     pendingCheckout.status = req.body.success ? "success" : "failed";
     if (req.body.success) {
       addLog("ORDER PLACED via browser checkout!", "success");
+      // Track ordered SKUs for potential re-order
+      lastOrderedSkus = [];
       var product = products.find(function(p) { return p.sku === pendingCheckout.sku; });
       if (product) {
         recordOrder(product.sku);
+        lastOrderedSkus.push(product.sku);
         sendCheckoutSuccess(product, req.body.orderId || "Success");
       }
+      // Also track any other CO-enabled products that were in this batch
+      products.forEach(function(p) {
+        if (p.autoCheckout && p.enabled && p.sku !== (product ? product.sku : "") && lastOrderedSkus.indexOf(p.sku) === -1) {
+          // Check if this product was in the ATC batch (recently queued)
+          if (p._lastAtcTime && Date.now() - p._lastAtcTime < 60000) {
+            recordOrder(p.sku);
+            lastOrderedSkus.push(p.sku);
+          }
+        }
+      });
     } else {
       addLog("Browser checkout failed: " + (req.body.error || "unknown"), "error");
       // Notify if item was in cart but checkout failed

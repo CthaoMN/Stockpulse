@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockPulse — Purchase History</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+  
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#020406; color:#c8d6e5; font-family:'Outfit',sans-serif; font-size:13px; padding:0; min-height:100vh; }
+  
+  .page { max-width:1200px; margin:0 auto; padding:20px; }
+  
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid #0a1520; }
+  .header h1 { font-size:20px; color:#e8f0f8; font-weight:600; letter-spacing:-0.5px; }
+  .header h1 span { color:#00ff88; }
+  .nav { display:flex; gap:8px; }
+  .nav a { padding:6px 14px; border:1px solid #1a2a3a; border-radius:6px; font-size:11px; color:#556677; text-decoration:none; font-family:'JetBrains Mono',monospace; letter-spacing:0.5px; transition:all 0.2s; }
+  .nav a:hover { border-color:#00ff8850; color:#00ff88; }
+  .nav a.active { border-color:#00ff88; color:#00ff88; background:#00ff8808; }
+
+  /* Stats cards */
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin-bottom:24px; }
+  .stat { background:linear-gradient(135deg, #060c14 0%, #0a1420 100%); border:1px solid #0f1a28; border-radius:10px; padding:16px 18px; position:relative; overflow:hidden; }
+  .stat::after { content:''; position:absolute; top:0; right:0; width:60px; height:60px; border-radius:0 10px 0 60px; opacity:0.04; }
+  .stat.green::after { background:#00ff88; }
+  .stat.blue::after { background:#4ea8de; }
+  .stat.amber::after { background:#ffaa00; }
+  .stat.purple::after { background:#aa66ff; }
+  .stat-label { font-size:10px; color:#445566; text-transform:uppercase; letter-spacing:1.5px; font-family:'JetBrains Mono',monospace; margin-bottom:6px; }
+  .stat-value { font-size:28px; font-weight:700; letter-spacing:-1px; }
+  .stat.green .stat-value { color:#00ff88; }
+  .stat.blue .stat-value { color:#4ea8de; }
+  .stat.amber .stat-value { color:#ffaa00; }
+  .stat.purple .stat-value { color:#aa66ff; }
+  .stat-sub { font-size:10px; color:#445566; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+
+  /* Chart */
+  .chart-section { background:linear-gradient(135deg, #060c14 0%, #0a1420 100%); border:1px solid #0f1a28; border-radius:10px; padding:20px; margin-bottom:24px; }
+  .chart-title { font-size:11px; color:#445566; text-transform:uppercase; letter-spacing:1.5px; font-family:'JetBrains Mono',monospace; margin-bottom:16px; }
+  .chart-container { position:relative; height:250px; }
+  .chart-tabs { display:flex; gap:6px; margin-bottom:14px; }
+  .chart-tab { padding:4px 12px; border:1px solid #1a2a3a; border-radius:4px; font-size:10px; color:#556677; cursor:pointer; font-family:'JetBrains Mono',monospace; background:none; transition:all 0.2s; }
+  .chart-tab:hover { border-color:#4ea8de; color:#4ea8de; }
+  .chart-tab.active { border-color:#00ff88; color:#00ff88; background:#00ff8808; }
+
+  /* Table */
+  .table-section { background:linear-gradient(135deg, #060c14 0%, #0a1420 100%); border:1px solid #0f1a28; border-radius:10px; overflow:hidden; }
+  .table-header { padding:16px 18px; border-bottom:1px solid #0f1a28; display:flex; justify-content:space-between; align-items:center; }
+  .table-title { font-size:11px; color:#445566; text-transform:uppercase; letter-spacing:1.5px; font-family:'JetBrains Mono',monospace; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; padding:10px 14px; font-size:10px; color:#334455; text-transform:uppercase; letter-spacing:1px; font-family:'JetBrains Mono',monospace; font-weight:500; border-bottom:1px solid #0a1520; }
+  td { padding:10px 14px; font-size:12px; border-bottom:1px solid #060c14; }
+  tr:hover td { background:#0a141e; }
+  .td-name { color:#e0e8f0; font-weight:500; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .td-sku { color:#556677; font-family:'JetBrains Mono',monospace; font-size:11px; }
+  .td-price { color:#00ff88; font-family:'JetBrains Mono',monospace; font-weight:500; }
+  .td-qty { color:#4ea8de; text-align:center; }
+  .td-type { color:#aa66ff; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; }
+  .td-date { color:#556677; font-size:11px; font-family:'JetBrains Mono',monospace; }
+  .td-total { color:#ffaa00; font-family:'JetBrains Mono',monospace; font-weight:600; }
+  
+  .empty { text-align:center; padding:60px 20px; color:#334455; }
+  .empty-icon { font-size:48px; margin-bottom:12px; opacity:0.3; }
+  .empty-text { font-size:14px; }
+  .empty-sub { font-size:11px; margin-top:6px; color:#223344; }
+
+  @media (max-width:700px) { .stats { grid-template-columns:repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="header">
+  <h1>Stock<span>Pulse</span> History</h1>
+  <div class="nav">
+    <a href="/">Monitor</a>
+    <a href="/history" class="active">History</a>
+    <a href="/config">Config</a>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat green">
+    <div class="stat-label">Total Orders</div>
+    <div class="stat-value" id="totalOrders">0</div>
+    <div class="stat-sub" id="totalItems">0 items</div>
+  </div>
+  <div class="stat blue">
+    <div class="stat-label">Total Spent</div>
+    <div class="stat-value" id="totalSpent">$0</div>
+    <div class="stat-sub" id="avgOrder">avg $0/order</div>
+  </div>
+  <div class="stat amber">
+    <div class="stat-label">Today</div>
+    <div class="stat-value" id="todayOrders">0</div>
+    <div class="stat-sub" id="todaySpent">$0 today</div>
+  </div>
+  <div class="stat purple">
+    <div class="stat-label">Unique SKUs</div>
+    <div class="stat-value" id="uniqueSkus">0</div>
+    <div class="stat-sub" id="topProduct">—</div>
+  </div>
+</div>
+
+<!-- Chart -->
+<div class="chart-section">
+  <div class="chart-title">Order Activity</div>
+  <div class="chart-tabs">
+    <button class="chart-tab active" onclick="setChartMode('orders')">Orders</button>
+    <button class="chart-tab" onclick="setChartMode('spend')">Spend</button>
+    <button class="chart-tab" onclick="setChartMode('items')">Items</button>
+  </div>
+  <div class="chart-container">
+    <canvas id="historyChart"></canvas>
+  </div>
+</div>
+
+<!-- Order Table -->
+<div class="table-section">
+  <div class="table-header">
+    <div class="table-title">Order Log</div>
+    <div class="table-title" id="orderCount"></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Product</th>
+        <th>Type</th>
+        <th>SKU</th>
+        <th>Price</th>
+        <th>Qty</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="orderBody"></tbody>
+  </table>
+  <div id="emptyState" class="empty" style="display:none">
+    <div class="empty-icon">📦</div>
+    <div class="empty-text">No orders yet</div>
+    <div class="empty-sub">Orders will appear here when StockPulse completes a checkout</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+var history = [];
+var chart = null;
+var chartMode = "orders";
+
+function loadHistory() {
+  fetch("/api/history").then(function(r) { return r.json(); }).then(function(data) {
+    history = data || [];
+    render();
+  });
+}
+
+function render() {
+  var today = new Date().toISOString().split("T")[0];
+  
+  // Stats
+  var totalOrders = history.length;
+  var totalItems = history.reduce(function(s, h) { return s + (h.qty || 0); }, 0);
+  var totalSpent = history.reduce(function(s, h) { return s + (h.total || 0); }, 0);
+  var todayData = history.filter(function(h) { return h.date === today; });
+  var todaySpent = todayData.reduce(function(s, h) { return s + (h.total || 0); }, 0);
+  var skus = {};
+  history.forEach(function(h) { skus[h.sku] = (skus[h.sku] || 0) + 1; });
+  var uniqueCount = Object.keys(skus).length;
+  var topSku = Object.keys(skus).sort(function(a, b) { return skus[b] - skus[a]; })[0];
+  var topProduct = topSku ? history.find(function(h) { return h.sku === topSku; }) : null;
+
+  document.getElementById("totalOrders").textContent = totalOrders;
+  document.getElementById("totalItems").textContent = totalItems + " items";
+  document.getElementById("totalSpent").textContent = "$" + totalSpent.toFixed(2);
+  document.getElementById("avgOrder").textContent = totalOrders ? "avg $" + (totalSpent / totalOrders).toFixed(2) + "/order" : "—";
+  document.getElementById("todayOrders").textContent = todayData.length;
+  document.getElementById("todaySpent").textContent = "$" + todaySpent.toFixed(2) + " today";
+  document.getElementById("uniqueSkus").textContent = uniqueCount;
+  document.getElementById("topProduct").textContent = topProduct ? topProduct.name.substring(0, 30) : "—";
+
+  // Table
+  var tbody = document.getElementById("orderBody");
+  var empty = document.getElementById("emptyState");
+  document.getElementById("orderCount").textContent = totalOrders + " orders";
+
+  if (history.length === 0) {
+    tbody.innerHTML = "";
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  // Sort newest first
+  var sorted = history.slice().reverse();
+  tbody.innerHTML = sorted.map(function(h) {
+    var d = new Date(h.timestamp);
+    var dateStr = (d.getMonth()+1) + "/" + d.getDate() + " " + d.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" });
+    return '<tr>'
+      + '<td class="td-date">' + dateStr + '</td>'
+      + '<td class="td-name">' + (h.name || "Unknown") + '</td>'
+      + '<td class="td-type">' + (h.type || "—") + '</td>'
+      + '<td class="td-sku">' + (h.sku || "—") + '</td>'
+      + '<td class="td-price">$' + (h.price || 0).toFixed(2) + '</td>'
+      + '<td class="td-qty">' + (h.qty || 0) + '</td>'
+      + '<td class="td-total">$' + (h.total || 0).toFixed(2) + '</td>'
+      + '</tr>';
+  }).join("");
+
+  renderChart();
+}
+
+function renderChart() {
+  // Group by date
+  var byDate = {};
+  history.forEach(function(h) {
+    var d = h.date || h.timestamp.split("T")[0];
+    if (!byDate[d]) byDate[d] = { orders: 0, spend: 0, items: 0 };
+    byDate[d].orders++;
+    byDate[d].spend += h.total || 0;
+    byDate[d].items += h.qty || 0;
+  });
+
+  // Fill in missing dates for last 30 days
+  var labels = [];
+  var data = [];
+  var now = new Date();
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(now);
+    d.setDate(d.getDate() - i);
+    var key = d.toISOString().split("T")[0];
+    var short = (d.getMonth()+1) + "/" + d.getDate();
+    labels.push(short);
+    var val = byDate[key] || { orders: 0, spend: 0, items: 0 };
+    data.push(val[chartMode]);
+  }
+
+  var colors = { orders: "#00ff88", spend: "#ffaa00", items: "#4ea8de" };
+  var bgColors = { orders: "#00ff8820", spend: "#ffaa0020", items: "#4ea8de20" };
+
+  if (chart) chart.destroy();
+  var ctx = document.getElementById("historyChart").getContext("2d");
+  chart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: bgColors[chartMode],
+        borderColor: colors[chartMode],
+        borderWidth: 1.5,
+        borderRadius: 4,
+        hoverBackgroundColor: colors[chartMode] + "40",
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#0a1420",
+          borderColor: "#1a2a3a",
+          borderWidth: 1,
+          titleFont: { family: "JetBrains Mono", size: 11 },
+          bodyFont: { family: "JetBrains Mono", size: 11 },
+          titleColor: "#8899aa",
+          bodyColor: colors[chartMode],
+          padding: 10,
+          callbacks: {
+            label: function(ctx) {
+              if (chartMode === "spend") return "$" + ctx.raw.toFixed(2);
+              return ctx.raw + (chartMode === "orders" ? " orders" : " items");
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: "#0a1520", drawBorder: false },
+          ticks: { color: "#334455", font: { family: "JetBrains Mono", size: 9 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: "#0a1520", drawBorder: false },
+          ticks: {
+            color: "#334455",
+            font: { family: "JetBrains Mono", size: 10 },
+            callback: function(v) { return chartMode === "spend" ? "$" + v : v; }
+          }
+        }
+      }
+    }
+  });
+}
+
+function setChartMode(mode) {
+  chartMode = mode;
+  document.querySelectorAll(".chart-tab").forEach(function(t) { t.classList.remove("active"); });
+  event.target.classList.add("active");
+  renderChart();
+}
+
+loadHistory();
+// Auto-refresh every 30s
+setInterval(loadHistory, 30000);
+</script>
+</body>
+</html>

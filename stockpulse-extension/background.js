@@ -585,6 +585,21 @@ async function processQueue() {
       await fetch(BASE + "/api/browser-checkout/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(coResult2) });
       chrome.action.setBadgeText({ text: coResult2.success ? "$$" : "!" });
       chrome.action.setBadgeBackgroundColor({ color: coResult2.success ? "#00cc66" : "#ff4444" });
+
+      // If checkout succeeded, ask server to re-queue if daily limit allows
+      if (coResult2.success) {
+        spLog("Order placed! Checking if re-order is allowed...", "system");
+        await new Promise(function(r) { setTimeout(r, 2000); });
+        var reorder = await fetch(BASE + "/api/reorder", { method: "POST" });
+        var reorderData = await reorder.json();
+        if (reorderData.queued > 0) {
+          spLog("Re-order queued: " + reorderData.queued + " item(s) — looping ATC+checkout", "success");
+          processing = false;
+          return; // Let processQueue pick up the new ATCs on next tick
+        } else {
+          spLog("No re-orders — daily limit reached", "system");
+        }
+      }
     }
     setTimeout(function() { chrome.action.setBadgeText({ text: "✓" }); chrome.action.setBadgeBackgroundColor({ color: "#00cc66" }); }, 5000);
   } catch(e) {
