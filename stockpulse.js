@@ -74,6 +74,9 @@ var CONFIG = {
   // Role verification — user must be in this server with this role
   DISCORD_VERIFY_SERVER_ID: "1481014372318056704",
   DISCORD_VERIFY_ROLE_NAME: "ACO OG",
+  // Bot forwarding — posts alerts to your server via bot
+  DISCORD_BOT_TOKEN: "",
+  DISCORD_BOT_CHANNEL_ID: "",
 };
 
 // Load saved config
@@ -310,6 +313,15 @@ function addLog(msg, type) {
 }
 
 function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+// Simple word overlap similarity for product name matching
+function similarEnough(a, b) {
+  var wordsA = a.split(/\s+/).filter(function(w) { return w.length > 2; });
+  var wordsB = b.split(/\s+/).filter(function(w) { return w.length > 2; });
+  var matches = 0;
+  wordsA.forEach(function(w) { if (wordsB.indexOf(w) !== -1) matches++; });
+  return matches >= 3 || (matches >= 2 && wordsA.length <= 4);
+}
 
 function canOrderToday(sku) {
   var today = new Date().toISOString().split("T")[0];
@@ -853,17 +865,14 @@ app.post("/api/start", async function(req, res) {
     }
     monitorRunning = true;
     startTime = Date.now();
-    CONFIG.DISCORD_LISTEN_ENABLED = true;
-    startDiscordListener();
-    addLog("Monitor STARTED — Discord listener active", "system");
+    addLog("Monitor STARTED — open Discord channel in Chrome to receive alerts", "system");
   }
   res.json({ ok: true });
 });
 
 app.post("/api/stop", function(req, res) {
   monitorRunning = false;
-  CONFIG.DISCORD_LISTEN_ENABLED = false;
-  addLog("Monitor STOPPED — Discord listener paused", "system");
+  addLog("Monitor STOPPED", "system");
   res.json({ ok: true });
 });
 
@@ -1350,6 +1359,158 @@ app.post("/api/browser-atc", function(req, res) {
   };
   addLog("Browser ATC queued: " + req.body.sku + " x" + pendingAtc.qty, "system");
   res.json({ ok: true });
+});
+
+// ── DISCORD WATCHER ALERTS (from Chrome extension DOM scraper) ──
+app.post("/api/discord-alert", async function(req, res) {
+  var body = req.body || {};
+  var tcins = body.tcins || [];
+  var message = body.message || "";
+  var productName = body.productName || "";
+  
+  // If no TCINs found, try to match by product name
+  if (tcins.length === 0 && productName) {
+    var cleanName = productName
+      .replace(/^Pok[eéè]mon Trading Card Game[:\s]*/i, "")
+      .replace(/^Pok[eéè]mon TCG[:\s]*/i, "")
+      .replace(/^Pokemon\s+/i, "")
+      .trim().toLowerCase();
+    
+    products.forEach(function(p) {
+      var pName = p.name.toLowerCase();
+      // Fuzzy match — check if key words overlap
+      if (cleanName && pName && (
+        pName.indexOf(cleanName) !== -1 || 
+        cleanName.indexOf(pName) !== -1 ||
+        (cleanName.length > 10 && pName.length > 10 && similarEnough(cleanName, pName))
+      )) {
+        if (tcins.indexOf(p.sku) === -1) {
+          tcins.push(p.sku);
+          addLog("Name matched: '" + cleanName.substring(0, 40) + "' → " + p.sku + " (" + p.name + ")", "info");
+        }
+      }
+    });
+  }
+  
+  if (tcins.length === 0) return res.json({ ok: false, error: "No TCINs or name match" });
+  
+  if (!monitorRunning) {
+    addLog("Alert received but monitor is STOPPED — ignoring " + tcins.join(", "), "warn");
+    return res.json({ ok: false, error: "Monitor not running — click Start" });
+  }
+  
+  addLog("═══ DISCORD WATCHER: " + tcins.length + " TCIN(s) detected ═══", "success");
+  addLog("Source: " + message.substring(0, 100), "info");
+
+  // Forward to webhook if configured
+  if (CONFIG.DISCORD_FORWARD_WEBHOOK) {
+    fetch(CONFIG.DISCORD_FORWARD_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: "StockPulse Watcher",
+        content: message.substring(0, 500),
+      })
+    }).catch(function() {});
+  }
+
+  // Forward via Discord bot to shared channel
+  if (CONFIG.DISCORD_BOT_TOKEN && CONFIG.DISCORD_BOT_CHANNEL_ID) {
+    fetch("https://discord.com/api/v10/channels/" + CONFIG.DISCORD_BOT_CHANNEL_ID + "/messages", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bot " + CONFIG.DISCORD_BOT_TOKEN,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        embeds: [{
+          title: "Stock Alert",
+          description: message.substring(0, 500),
+          color: 65280,
+          fields: tcins.map(function(t) {
+            var p = products.find(function(pr) { return pr.sku === t; });
+            return { name: "TCIN " + t, value: p ? p.name + " ($" + (p.msrp || "?") + ")" : "Not in dashboard", inline: true };
+          }),
+          timestamp: new Date().toISOString(),
+          footer: { text: "StockPulse Bot" }
+        }]
+      })
+    }).then(function(r) {
+      if (r.ok) addLog("Bot forwarded to Discord", "system");
+      else addLog("Bot forward failed: " + r.status, "warn");
+    }).catch(function() {});
+  }
+
+  for (var i = 0; i < tcins.length; i++) {
+    var tcin = tcins[i];
+    
+    // Find product in dashboard
+    var product = products.find(function(p) { return p.sku === tcin; });
+    
+    if (!product) {
+      addLog("TCIN " + tcin + " not in dashboard — skipping", "warn");
+      continue;
+    }
+    if (!product.enabled) {
+      addLog("SKIP: " + product.name + " — On checkbox is OFF", "warn");
+      continue;
+    }
+    if (!product.autoCheckout) {
+      addLog("SKIP: " + product.name + " — CO checkbox is OFF", "warn");
+      continue;
+    }
+    if (!credentials.cvv) {
+      addLog("SKIP: No CVV saved — set in Config page", "error");
+      continue;
+    }
+
+    // Check daily limit
+    if (!canOrderToday(tcin)) {
+      addLog("SKIP: " + product.name + " — daily limit reached", "warn");
+      continue;
+    }
+
+    addLog("✓ Found: " + product.name + " (" + product.type + ")", "system");
+
+    // Verify stock
+    addLog("Verifying stock via Redsky API...", "system");
+    var stockResult = await checkSingleSku(tcin);
+    if (stockResult.seller) addLog("  Seller: " + stockResult.seller, "info");
+    if (stockResult.isThirdParty) {
+      addLog("SKIP: Third-party seller — " + stockResult.seller, "warn");
+      continue;
+    }
+    if (stockResult.status === "OUT_OF_STOCK") {
+      addLog("⚠ Stock check: OUT OF STOCK — skipping ATC (alert was stale)", "warn");
+      continue;
+    }
+    if (stockResult.status === "IN_STOCK") {
+      addLog("✓ Stock VERIFIED: IN_STOCK!", "success");
+    }
+
+    // Queue ATC
+    if (!pendingAtcQueue) pendingAtcQueue = [];
+    if (!pendingAtcQueue.find(function(q) { return q.sku === tcin; })) {
+      pendingAtcQueue.push({ sku: tcin, qty: CONFIG.ATC_QTY || 2, product: product });
+      addLog("═══ QUEUED ATC: " + product.name + " x" + CONFIG.ATC_QTY + " ═══", "system");
+    }
+
+    // Send Discord alert
+    await sendDiscordAlert(product, {
+      status: "IN_STOCK", price: product.currentPrice,
+      priceFormatted: product.currentPrice ? "$" + product.currentPrice : "N/A",
+      seller: product.seller || "Target", isThirdParty: false, quantity: null,
+      shipAvailable: true, pickupAvailable: false,
+    });
+  }
+
+  // Queue checkout if any ATCs were queued
+  if (pendingAtcQueue && pendingAtcQueue.length > 0) {
+    // Checkout will be triggered by the extension after ATCs complete
+    addLog("Waiting for extension to process " + pendingAtcQueue.length + " ATC(s)...", "system");
+  }
+
+  res.json({ ok: true, processed: tcins.length });
 });
 
 app.get("/api/browser-atc/pending", function(req, res) {
