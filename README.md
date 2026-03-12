@@ -5,7 +5,7 @@ Automated Target.com stock monitor and auto-checkout bot for Pokémon TCG produc
 ## How It Works
 
 ```
-You browse Discord in Chrome (PokeNotify, Zephyr, etc.)
+You browse Discord in Chrome (Pokemon Notification, Zephyr, etc.)
     ↓
 Chrome Extension watches for new messages in the channel (DOM scraping)
     ↓
