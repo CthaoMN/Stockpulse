@@ -63,6 +63,41 @@ chrome.cookies.onChanged.addListener(function(i) {
 });
 chrome.runtime.onInstalled.addListener(syncCookies);
 
+// Listen for alerts from Discord watcher content script
+chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+  if (msg && msg.type === "discord-alert" && msg.payload) {
+    fetch(BASE + "/api/discord-alert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg.payload)
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      spLog("Discord alert forwarded: " + (msg.payload.tcins || []).join(", "), "system");
+      sendResponse({ ok: true, result: d });
+    }).catch(function(e) {
+      spLog("Discord alert forward error: " + e.message, "error");
+      sendResponse({ ok: false, error: e.message });
+    });
+    return true;
+  }
+});
+
+// Also listen for external messages (from Discord page console)
+chrome.runtime.onMessageExternal.addListener(function(msg, sender, sendResponse) {
+  if (msg && msg.type === "discord-alert" && msg.payload) {
+    fetch(BASE + "/api/discord-alert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg.payload)
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      spLog("Discord alert (external): " + (msg.payload.tcins || []).join(", "), "system");
+      sendResponse({ ok: true, result: d });
+    }).catch(function(e) {
+      sendResponse({ ok: false, error: e.message });
+    });
+    return true;
+  }
+});
+
 // Keep service worker alive — Chrome kills inactive workers after 30s
 // This alarm fires every 25s to keep it running
 chrome.alarms.create("keepalive", { periodInMinutes: 0.4 });

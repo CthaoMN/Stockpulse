@@ -853,8 +853,8 @@ app.get("/api/state", function(req, res) {
 
 app.post("/api/start", async function(req, res) {
   if (!monitorRunning) {
-    // Verify Discord role before starting
-    if (CONFIG.DISCORD_VERIFY_SERVER_ID && CONFIG.DISCORD_VERIFY_ROLE_NAME) {
+    // Verify Discord role before starting (only if user token is set)
+    if (CONFIG.DISCORD_USER_TOKEN && CONFIG.DISCORD_VERIFY_SERVER_ID && CONFIG.DISCORD_VERIFY_ROLE_NAME) {
       addLog("Verifying Discord membership...", "system");
       var verify = await verifyDiscordRole();
       if (!verify.ok) {

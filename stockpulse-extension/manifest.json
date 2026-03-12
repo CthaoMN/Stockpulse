@@ -25,6 +25,9 @@
       "run_at": "document_idle"
     }
   ],
+  "externally_connectable": {
+    "matches": ["https://discord.com/*"]
+  },
   "action": {
     "default_popup": "popup.html"
   }

@@ -1,22 +1,26 @@
 # StockPulse
 
-Automated Target.com stock monitor and auto-checkout bot for Pokémon TCG products. Listens for Discord stock alerts, adds items to cart via Chrome extension, and checks out — all from your real browser session.
+Automated Target.com stock monitor and auto-checkout bot for Pokémon TCG products. Watches Discord stock alert channels via Chrome extension, adds items to cart, and checks out — all from your real browser session. No Discord user tokens, no ban risk.
 
 ## How It Works
 
 ```
-Discord stock alert (Pokemon Notifications, Zephyr, etc.)
-    ↓ (2s polling)
-StockPulse detects TCIN → verifies stock → queues ATC
+You browse Discord in Chrome (PokeNotify, Zephyr, etc.)
     ↓
-Chrome Extension: fires ATC API from your browser → verifies cart
+Chrome Extension watches for new messages in the channel (DOM scraping)
     ↓
-Chrome Extension: navigates to checkout → sets shipping/CVV → places order
+Extension detects TCIN from embed fields → sends to StockPulse
     ↓
-Order placed → Discord notification
+StockPulse verifies stock via Target API → queues ATC
+    ↓
+Extension: fires ATC API from your browser → verifies cart
+    ↓
+Extension: navigates to checkout → sets shipping/CVV → places order
+    ↓
+Order placed → Discord bot notifies your server
 ```
 
-Everything runs inside your real Chrome browser — no headless browsers, no detectable automation. PerimeterX (Target's bot detection) sees a normal user.
+No headless browsers, no API tokens, no detectable automation. PerimeterX (Target's bot detection) sees a normal user. Discord sees a normal user browsing the web app.
 
 ## Quick Start
 
@@ -42,7 +46,6 @@ Open `http://localhost:3069/config` and fill in:
 
 - **Target password** — for auto re-authentication during checkout
 - **CVV** — for auto-checkout
-- **Discord User Token** — to listen for stock alerts
 - **Listen Channels** — add channels to monitor (paste Discord URL or channel ID)
 
 Click **Save All**.
@@ -55,18 +58,33 @@ Click **Save All**.
 
 ### 5. Run
 
-- Open `http://localhost:3069` (Monitor dashboard)
-- Add products by pasting Target URLs
-- Check **On** and **CO** for products you want to auto-checkout
-- Click **Start** — bot verifies your Discord role and begins monitoring
+1. Open `http://localhost:3069` → click **Start**
+2. Open Discord in Chrome → navigate to your stock alert channel
+3. Keep both tabs open — the extension monitors everything automatically
 
 ## Requirements
 
 - **Node.js 18+**
 - **Chrome browser**
-- **Discord account** with access to a stock alert server
+- **Discord stock alert server** membership (PokeNotify, Zephyr, etc.)
 - **Target.com account** with saved payment and shipping address
-- **"ACO OG" role** in the StockPulse Discord server
+
+## How Discord Monitoring Works
+
+Unlike traditional bots that use Discord API tokens (which get banned), StockPulse uses a **DOM watcher** approach:
+
+1. You open Discord **in Chrome** like a normal user
+2. Navigate to the stock alert channel
+3. The Chrome extension injects a content script into the Discord page
+4. When new messages appear, the script reads embed fields from the DOM
+5. Extracts TCINs and product names from the message content
+6. Sends alerts to StockPulse server via the extension's background script
+
+**Why this doesn't get banned:**
+- No Discord API calls
+- No user token or bot token reading from their server
+- You're just a normal user with a Chrome extension (like any ad blocker)
+- Discord's CSP is bypassed via the extension's background script relay
 
 ## Dashboard
 
@@ -99,25 +117,30 @@ All settings at `http://localhost:3069/config`:
 ### Main Settings
 - **Target Store** — ZIP code, Store ID (used for stock verification)
 - **Checkout** — ATC quantity, max orders per SKU per day, Target password, CVV
-- **Discord Credentials** — user token with Test button to verify
-- **Listen Channels** — channels to monitor for stock alerts (accepts Discord URLs)
+- **Discord Credentials** — user token (optional, only needed for role verification)
+- **Listen Channels** — channels to monitor (accepts Discord URLs or channel IDs)
 
 ### Advanced (Optional)
 - Poll interval and alert cooldown
-- Forward-only channels (copy messages without ATC)
-- Webhook for checkout failures (alerts you to manually checkout)
-- Webhook for log messages
+- Forward-only channels (copy messages to your server without ATC)
 - Webhook for stock alert forwarding
+- Webhook for checkout failures
+- Webhook for log messages
 
 All config saves to `.stockpulse-config.json`. Credentials save to `.stockpulse-creds.json`.
 
-### Getting Your Discord Token
+## Discord Bot (for sharing alerts)
 
-1. Open Discord **in Chrome** (not the app)
-2. F12 → **Network** tab
-3. Send a message in any channel
-4. Filter by `messages`
-5. Click the request → Headers → copy `Authorization` value
+StockPulse includes a Discord bot that forwards stock alerts to your own server so other users can benefit. When the DOM watcher detects an alert, the bot posts it as a rich embed.
+
+### Bot Setup
+
+1. Go to https://discord.com/developers/applications
+2. Create new application → go to **Bot** tab → **Reset Token** → copy token
+3. Enable **Message Content Intent** and **Server Members Intent**
+4. Go to **OAuth2** → **URL Generator** → check `bot` scope + `Send Messages`, `Embed Links`, `Read Message History`
+5. Copy invite URL → open in browser → select your server → Authorize
+6. Set `DISCORD_BOT_TOKEN` and `DISCORD_BOT_CHANNEL_ID` in stockpulse.js
 
 ## How Checkout Works
 
@@ -147,7 +170,8 @@ All config saves to `.stockpulse-config.json`. Credentials save to `.stockpulse-
 - **Price verification** — blocks checkout if MSRP is unverified
 - **Per-product toggle** — On/CO checkboxes per product
 - **Duplicate ATC prevention** — won't queue same SKU twice
-- **Role verification** — requires "ACO OG" Discord role to start
+- **Stock verification** — confirms stock via Redsky API before ATC
+- **Role verification** — optionally requires Discord role to start (for distribution)
 
 ## File Structure
 
@@ -159,9 +183,10 @@ stockpulse/
 ├── package.json               # Dependencies
 ├── stockpulse-extension/      # Chrome extension
 │   ├── manifest.json
-│   ├── background.js
-│   ├── popup.html
-│   └── popup.js
+│   ├── background.js          # Cookie sync, ATC, checkout, alert relay
+│   ├── discord-watcher.js     # DOM scraper for Discord stock alerts
+│   ├── popup.html             # Extension popup UI
+│   └── popup.js               # Popup logic
 ├── .stockpulse-config.json    # Saved config (gitignored)
 ├── .stockpulse-creds.json     # Saved credentials (gitignored)
 ├── .stockpulse-products.json  # Saved product states (gitignored)
@@ -176,9 +201,9 @@ stockpulse/
 | "No payment method" | Enter password at checkout to activate ecom.med scope |
 | "MISSING_ADDRESS" | Add a default shipping address at target.com/account |
 | Extension shows ✗ | Start StockPulse: `node stockpulse.js` |
-| Discord token expired | Get new token from Discord Network tab |
-| "ACCESS DENIED" | Need "ACO OG" role in the StockPulse Discord server |
-| 429 rate limited | Normal during drops — bot keeps retrying automatically |
+| No alerts detected | Make sure Discord tab is open on the correct channel |
+| "Monitor is STOPPED" | Click Start on the dashboard first |
+| 429 rate limited | Normal during drops — bot keeps retrying at 50ms |
 | Products show SCAN | Click "Scan MSRPs" to detect prices |
 
 ## .gitignore
