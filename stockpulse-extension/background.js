@@ -1,13 +1,66 @@
-// StockPulse Cookie Sync + Browser ATC/Checkout
+// StockPulse Extension v2.0.0
+// Cookie Sync + Browser ATC/Checkout + Discord Watcher
+var SP_VERSION = "2.0.0";
 var STOCKPULSE_URL = "http://localhost:3069/api/harvester/cookies";
 var BASE = "http://localhost:3069";
+var TASK_ID = ""; // Set from URL param or server registration
+
+// Detect task ID — check target.com tabs for ?stockpulse_task= parameter
+async function detectTaskId() {
+  try {
+    // Check if any target.com tab has the task parameter
+    var tabs = await chrome.tabs.query({ url: "https://www.target.com/*" });
+    for (var i = 0; i < tabs.length; i++) {
+      var url = tabs[i].url || "";
+      var match = url.match(/stockpulse_task=([a-z0-9-]+)/i);
+      if (match) {
+        TASK_ID = match[1];
+        spLog("Task ID from URL: " + TASK_ID, "success");
+        // Don't clean up URL yet — let auto-login handle the page
+        // Claim this task on the server
+        fetch(BASE + "/api/tasks/" + TASK_ID + "/claim", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ extensionId: chrome.runtime.id })
+        });
+        return;
+      }
+    }
+
+    // Fallback: check stored task ID
+    var stored = await chrome.storage.local.get("taskId");
+    if (stored && stored.taskId && stored.taskId !== "__none__") {
+      TASK_ID = stored.taskId;
+      spLog("Task ID from storage: " + TASK_ID, "system");
+      return;
+    }
+
+    // No task assigned — this is the main browser (Discord watching only)
+    spLog("No task assigned — Discord watcher only mode", "system");
+  } catch(e) {
+    spLog("Task detection: " + e.message, "warn");
+  }
+
+  // Save task ID for future startups
+  if (TASK_ID) {
+    chrome.storage.local.set({ taskId: TASK_ID });
+  }
+}
+detectTaskId();
+
+// Helper: get task-specific or legacy endpoint
+function taskUrl(path) {
+  if (TASK_ID) return BASE + "/api/tasks/" + TASK_ID + path;
+  return BASE + "/api" + path.replace(/^\//, "/browser-");
+}
+// Map: /atc/pending → /api/tasks/TASKID/atc/pending OR /api/browser-atc/pending
 var lastHash = "";
 var debounceTimer = null;
 var K_ATC = "9f36aeafbe60771e321a7cc95a78140772ab3e96";
 var CHECKOUT_KEY = "e59ce3b531b2c39afb2e2b8a71ff10113aac2a14";
 
 function spLog(msg, type) {
-  console.log("[SP] " + msg);
+  console.log("[SP v" + SP_VERSION + "] " + msg);
   fetch(BASE + "/api/browser-log", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -173,7 +226,7 @@ async function executeAtc(sku, qty) {
         }
       }
 
-      // 401 — reload page ONCE to refresh PX
+      // 401/403 — reload page ONCE to refresh PX
       if (result && (result.status === 401 || result.status === 403) && !reloaded) {
         spLog("ATC: refreshing PX cookies...", "warn");
         await chrome.tabs.update(tab.id, { url: "https://www.target.com/p/-/A-" + sku });
@@ -181,10 +234,16 @@ async function executeAtc(sku, qty) {
         reloaded = true;
         continue;
       }
-      // 401 after reload — give up
+      // 401/403 after reload — give up
       if (result && (result.status === 401 || result.status === 403) && reloaded) {
         spLog("ATC: auth failed after PX refresh", "error");
         return { success: false, error: "Auth failed" };
+      }
+
+      // 424 Failed Dependency — item unavailable/OOS
+      if (result && result.status === 424) {
+        spLog("ATC: " + sku + " unavailable (424) — item may be OOS or restricted", "error");
+        return { success: false, error: "Item unavailable (424)" };
       }
 
       // OOS — stop
@@ -214,13 +273,13 @@ async function executeCheckout(cvv, tabId) {
     var tab = tabId ? await chrome.tabs.get(tabId).catch(function() { return null; }) : null;
     if (!tab) tab = await findTargetTab();
 
-    spLog("Checkout: setting up...", "system");
+    spLog("Checkout: navigating to checkout...", "system");
 
-    // Navigate to checkout page to initialize payment session
+    // Navigate to checkout page — Target auto-sets shipping/fulfillment when this loads
     await chrome.tabs.update(tab.id, { url: "https://www.target.com/checkout" });
-    await new Promise(function(r) { setTimeout(r, 2000); });
+    await new Promise(function(r) { setTimeout(r, 4000); });
 
-    // Get cart view with payment info
+    // Call cart_views API
     var r1 = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: function(key) {
@@ -235,89 +294,13 @@ async function executeCheckout(cvv, tabId) {
     var cartItems = cart && cart.cart_items ? cart.cart_items : [];
     var payId = cart && cart.payment_instructions && cart.payment_instructions[0] ? cart.payment_instructions[0].payment_instruction_id : "";
 
-    // If no payment, need to re-authenticate (ecom.med scope)
+    spLog("Cart: id=" + cartId + " items=" + cartItems.length + " payment=" + (payId ? "yes" : "NO"), "system");
+
+    // If no payment, wait briefly and retry — cart may still be settling after ATC
     if (!payId) {
-      spLog("Checkout: no payment — need re-auth, loading checkout...", "warn");
-      await chrome.tabs.update(tab.id, { url: "https://www.target.com/checkout" });
-      await new Promise(function(r) { setTimeout(r, 3000); });
-
-      // Check if login prompt appeared — click "Enter your password" and auto-fill
-      try {
-        var loginResult = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: function() {
-            // Look for "Enter your password" button
-            var buttons = document.querySelectorAll("button, a, div[role='button']");
-            var clicked = false;
-            for (var i = 0; i < buttons.length; i++) {
-              var txt = buttons[i].textContent.toLowerCase();
-              if (txt.indexOf("enter your password") !== -1 || txt.indexOf("password") !== -1) {
-                buttons[i].click();
-                clicked = true;
-                break;
-              }
-            }
-            return { clicked: clicked, url: window.location.href };
-          }
-        });
-        var lr = loginResult && loginResult[0] && loginResult[0].result;
-        if (lr && lr.clicked) {
-          spLog("Checkout: password prompt detected, filling...", "system");
-          await new Promise(function(r) { setTimeout(r, 2000); });
-
-          // Get password from StockPulse server
-          var savedPw = "";
-          try {
-            var pwRes = await fetch(BASE + "/api/target-password");
-            var pwData = await pwRes.json();
-            savedPw = pwData.password || "";
-          } catch(e) {}
-
-          var pwResult = await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            func: function(serverPw) {
-              var pw = document.querySelector("input[type='password']");
-              if (!pw) return { filled: false, reason: "no password field" };
-              
-              // Use Chrome autofill value if available, otherwise use server password
-              var password = pw.value || serverPw || "";
-              if (!password) return { filled: false, reason: "no password available" };
-              
-              // Set the value using native setter to trigger React
-              var nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-              nativeSet.call(pw, password);
-              pw.dispatchEvent(new Event("input", { bubbles: true }));
-              pw.dispatchEvent(new Event("change", { bubbles: true }));
-              
-              // Find and click submit
-              var btns = document.querySelectorAll("button");
-              for (var i = 0; i < btns.length; i++) {
-                var t = btns[i].textContent.toLowerCase();
-                if (t.indexOf("sign in") !== -1 || t.indexOf("log in") !== -1 || t.indexOf("continue") !== -1) {
-                  btns[i].click();
-                  return { filled: true };
-                }
-              }
-              // Try submit button
-              var submit = document.querySelector("button[type='submit']");
-              if (submit) { submit.click(); return { filled: true }; }
-              return { filled: false, reason: "no submit button" };
-            },
-            args: [savedPw]
-          });
-          var pr = pwResult && pwResult[0] && pwResult[0].result;
-          if (pr && pr.filled) {
-            spLog("Checkout: password submitted, waiting for auth...", "system");
-            await new Promise(function(r) { setTimeout(r, 4000); });
-          } else {
-            spLog("Checkout: couldn't auto-fill password — " + (pr ? pr.reason : "unknown"), "warn");
-          }
-        }
-      } catch(e) {
-        spLog("Checkout: login attempt error — " + e.message, "warn");
-      }
-
-      // Try getting payment again after re-auth
+      spLog("Checkout: no payment — waiting 2s and retrying...", "warn");
+      await new Promise(function(r) { setTimeout(r, 2000); });
+      
       var r1b = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
         func: function(key) {
@@ -333,44 +316,19 @@ async function executeCheckout(cvv, tabId) {
         cartItems = cart2.cart_items || cartItems;
         payId = cart2.payment_instructions && cart2.payment_instructions[0] ? cart2.payment_instructions[0].payment_instruction_id : "";
       }
-      if (!payId) {
-        spLog("Checkout: still no payment after re-auth — manual login needed", "error");
-        return { success: false, error: "No payment method — log in manually at target.com/checkout" };
-      }
+      spLog("Retry: payment=" + (payId ? "yes" : "NO"), "system");
+    }
+
+    if (!payId) {
+      spLog("Checkout: no payment method — session may have expired", "error");
+      return { success: false, error: "No payment method" };
     }
 
     spLog("Checkout: cart $" + (cart && cart.summary ? cart.summary.grand_total : "?") + " | " + cartItems.length + " items | payment: yes", "system");
 
-    // Step 2: Set shipping fulfillment and address for each cart item
-    // Get the default shipping address from the cart
-    var shippingAddress = null;
-    if (cart && cart.addresses) {
-      // Prefer address with address_id and type BOTH or SHIPPING
-      shippingAddress = cart.addresses.find(function(a) { return a.address_id && (a.address_type === "BOTH" || a.address_type === "SHIPPING"); });
-      if (!shippingAddress) shippingAddress = cart.addresses.find(function(a) { return a.address_id; });
-    }
-    var addrId = shippingAddress ? shippingAddress.address_id : "";
-    
-    for (var ci = 0; ci < cartItems.length; ci++) {
-      var item = cartItems[ci];
-      var itemId = item.cart_item_id;
-      if (itemId && addrId) {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: function(itemId, addrId, key) {
-            return fetch("https://carts.target.com/web_checkouts/v1/cart_item_fulfillment?key=" + key, {
-              method: "PUT", credentials: "include",
-              headers: {"Accept":"application/json","Content-Type":"application/json"},
-              body: JSON.stringify({ cart_type: "REGULAR", cart_item_id: itemId, fulfillment_type: "SHIP", shipping_address_id: addrId })
-            }).then(function(r) { return r.text().then(function(t) { return { ok: r.ok, status: r.status, body: t.substring(0, 200) }; }); });
-          },
-          args: [itemId, addrId, CHECKOUT_KEY]
-        });
-      }
-    }
-    if (cartItems.length > 0) spLog("Checkout: shipping set for " + cartItems.length + " item(s)" + (addrId ? " (addr: " + addrId.substring(0, 8) + ")" : " (NO ADDRESS!)"), "system");
+    // Shipping is auto-set by checkout page load — skip manual fulfillment API
 
-    // Step 3: Set CVV if payment method exists
+    // Step 2: Set CVV if payment method exists
     if (payId && cvv) {
       var r3 = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
@@ -530,6 +488,8 @@ var lastAtcTabId = null;
 
 async function processQueue() {
   if (processing) return;
+  // Only process ATCs if this extension is assigned to a task
+  if (!TASK_ID) return;
   processing = true;
   try {
     // Phase 1: Process ALL pending ATCs
@@ -537,7 +497,7 @@ async function processQueue() {
     var lastTab = null;
     
     while (true) {
-      var res = await fetch(BASE + "/api/browser-atc/pending");
+      var res = await fetch(BASE + "/api/tasks/" + TASK_ID + "/atc/pending");
       var p = await res.json();
       if (!p || !p.sku) break; // No more ATCs queued
       
@@ -546,7 +506,7 @@ async function processQueue() {
       chrome.action.setBadgeText({ text: "ATC" + atcCount }); chrome.action.setBadgeBackgroundColor({ color: "#ff8800" });
       
       var result = await executeAtc(p.sku, p.qty);
-      await fetch(BASE + "/api/browser-atc/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(result) });
+      await fetch(TASK_ID ? BASE + "/api/tasks/" + TASK_ID + "/atc/result" : BASE + "/api/browser-atc/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(result) });
       
       if (result.success && result.tabId) lastTab = result.tabId;
       
@@ -556,13 +516,13 @@ async function processQueue() {
     
     if (atcCount === 0) {
       // Check for standalone checkout
-      var cres = await fetch(BASE + "/api/browser-checkout/pending");
+      var cres = await fetch(TASK_ID ? BASE + "/api/tasks/" + TASK_ID + "/checkout/pending" : BASE + "/api/browser-checkout/pending");
       var cp = await cres.json();
       if (cp && cp.cvv) {
         spLog("Standalone checkout request", "system");
         chrome.action.setBadgeText({ text: "CO" }); chrome.action.setBadgeBackgroundColor({ color: "#ff8800" });
         var coResult = await executeCheckout(cp.cvv, lastAtcTabId);
-        await fetch(BASE + "/api/browser-checkout/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(coResult) });
+        await fetch(TASK_ID ? BASE + "/api/tasks/" + TASK_ID + "/checkout/result" : BASE + "/api/browser-checkout/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(coResult) });
         chrome.action.setBadgeText({ text: coResult.success ? "$$" : "!" });
         chrome.action.setBadgeBackgroundColor({ color: coResult.success ? "#00cc66" : "#ff4444" });
         setTimeout(function() { chrome.action.setBadgeText({ text: "✓" }); chrome.action.setBadgeBackgroundColor({ color: "#00cc66" }); }, 5000);
@@ -571,31 +531,93 @@ async function processQueue() {
       return;
     }
 
-    // Phase 2: All ATCs done — wait for checkout to be queued
+    // Phase 2: All ATCs done — poll for checkout to be queued
     spLog("All " + atcCount + " ATC(s) processed — waiting for checkout...", "system");
-    await new Promise(function(r) { setTimeout(r, 1500); });
     
-    var cres2 = await fetch(BASE + "/api/browser-checkout/pending");
-    var cp2 = await cres2.json();
+    var cp2 = null;
+    for (var ci = 0; ci < 10; ci++) {
+      await new Promise(function(r) { setTimeout(r, 1000); });
+      var cres2 = await fetch(BASE + "/api/tasks/" + TASK_ID + "/checkout/pending");
+      cp2 = await cres2.json();
+      if (cp2 && cp2.cvv) break;
+    }
+    
     if (cp2 && cp2.cvv) {
       spLog("Checkout: all items in cart, checking out...", "system");
       chrome.action.setBadgeText({ text: "CO" }); chrome.action.setBadgeBackgroundColor({ color: "#ff8800" });
       lastAtcTabId = lastTab;
       var coResult2 = await executeCheckout(cp2.cvv, lastTab);
-      await fetch(BASE + "/api/browser-checkout/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(coResult2) });
+      await fetch(TASK_ID ? BASE + "/api/tasks/" + TASK_ID + "/checkout/result" : BASE + "/api/browser-checkout/result", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(coResult2) });
       chrome.action.setBadgeText({ text: coResult2.success ? "$$" : "!" });
       chrome.action.setBadgeBackgroundColor({ color: coResult2.success ? "#00cc66" : "#ff4444" });
 
-      // If checkout succeeded, ask server to re-queue if daily limit allows
+      // If checkout succeeded, rotate account and re-queue
       if (coResult2.success) {
-        spLog("Order placed! Checking if re-order is allowed...", "system");
-        await new Promise(function(r) { setTimeout(r, 2000); });
+        spLog("Order placed! Rotating account...", "system");
+        
+        // Rotate to next Target account
+        var rotateRes = await fetch(BASE + "/api/rotate-account", { method: "POST" });
+        var rotateData = await rotateRes.json();
+        
+        if (rotateData.nextEmail) {
+          spLog("Switching to: " + rotateData.nextEmail, "system");
+          
+          // Log out of current Target account
+          var targetTab = await findTargetTab();
+          await chrome.tabs.update(targetTab.id, { url: "https://www.target.com/login/logout" });
+          await new Promise(function(r) { setTimeout(r, 3000); });
+          
+          // Get new account credentials
+          var acctRes = await fetch(BASE + "/api/target-account");
+          var acct = await acctRes.json();
+          
+          if (acct.email && acct.password) {
+            // Navigate to login
+            await chrome.tabs.update(targetTab.id, { url: "https://www.target.com/login" });
+            await new Promise(function(r) { setTimeout(r, 3000); });
+            
+            // Fill email and password
+            await chrome.scripting.executeScript({
+              target: { tabId: targetTab.id },
+              func: function(email, password) {
+                var nativeSet = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                var emailField = document.getElementById("username") || document.querySelector("input[type='email']") || document.querySelector("input[name='username']");
+                var pwField = document.getElementById("password") || document.querySelector("input[type='password']");
+                if (emailField) {
+                  nativeSet.call(emailField, email);
+                  emailField.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+                if (pwField) {
+                  nativeSet.call(pwField, password);
+                  pwField.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+                // Click sign in
+                var btn = document.getElementById("login") || document.querySelector("button[type='submit']");
+                if (!btn) {
+                  var btns = document.querySelectorAll("button");
+                  for (var i = 0; i < btns.length; i++) {
+                    if (btns[i].textContent.toLowerCase().indexOf("sign in") !== -1) { btn = btns[i]; break; }
+                  }
+                }
+                if (btn) btn.click();
+                return { email: !!emailField, pw: !!pwField, btn: !!btn };
+              },
+              args: [acct.email, acct.password]
+            });
+            
+            await new Promise(function(r) { setTimeout(r, 5000); });
+            spLog("Logged into " + acct.email + " — ready for re-order", "success");
+          }
+        }
+        
+        // Ask server to re-queue
+        await new Promise(function(r) { setTimeout(r, 1000); });
         var reorder = await fetch(BASE + "/api/reorder", { method: "POST" });
         var reorderData = await reorder.json();
         if (reorderData.queued > 0) {
-          spLog("Re-order queued: " + reorderData.queued + " item(s) — looping ATC+checkout", "success");
+          spLog("Re-order queued: " + reorderData.queued + " item(s)", "success");
           processing = false;
-          return; // Let processQueue pick up the new ATCs on next tick
+          return;
         } else {
           spLog("No re-orders — daily limit reached", "system");
         }
@@ -610,6 +632,14 @@ async function processQueue() {
 
 setInterval(processQueue, 1000);
 
+// ── AUTO LOGIN ON STARTUP ───────────────────────────────────────
+// Auto-login removed — Target's PX flags automated login flows.
+// Log in manually once per Chrome profile. Session persists via keepalive.
+
+// ── SESSION KEEPALIVE ───────────────────────────────────────────
+// Every 30 min: refresh PX + re-auth to maintain ecom.med scope
+// This ensures instant checkout when a drop happens
+var lastAuthTime = 0;
 // ── SESSION KEEPALIVE ───────────────────────────────────────────
 // Every 30 min: refresh PX + re-auth to maintain ecom.med scope
 // This ensures instant checkout when a drop happens
@@ -661,7 +691,7 @@ async function keepSessionAlive() {
         await new Promise(function(r) { setTimeout(r, 2000); });
         // Get password from server
         var kaPw = "";
-        try { var kpRes = await fetch(BASE + "/api/target-password"); var kpd = await kpRes.json(); kaPw = kpd.password || ""; } catch(e) {}
+        try { var kpRes = await fetch(TASK_ID ? BASE + "/api/tasks/" + TASK_ID + "/password" : BASE + "/api/target-password"); var kpd = await kpRes.json(); kaPw = kpd.password || ""; } catch(e) {}
         await chrome.scripting.executeScript({
           target: { tabId: tab.id },
           func: function(serverPw) {

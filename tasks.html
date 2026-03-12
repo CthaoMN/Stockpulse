@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StockPulse — Tasks</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#020406; color:#c8d6e5; font-family:'Outfit',sans-serif; font-size:13px; padding:0; min-height:100vh; }
+  .page { max-width:1200px; margin:0 auto; padding:20px; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid #0a1520; }
+  .header h1 { font-size:20px; color:#e8f0f8; font-weight:600; }
+  .header h1 span { color:#00ff88; }
+  .nav { display:flex; gap:8px; }
+  .nav a { padding:6px 14px; border:1px solid #1a2a3a; border-radius:6px; font-size:11px; color:#556677; text-decoration:none; font-family:'JetBrains Mono',monospace; transition:all 0.2s; }
+  .nav a:hover { border-color:#00ff8850; color:#00ff88; }
+  .nav a.active { border-color:#00ff88; color:#00ff88; background:#00ff8808; }
+
+  .section { background:linear-gradient(135deg, #060c14 0%, #0a1420 100%); border:1px solid #0f1a28; border-radius:10px; padding:20px; margin-bottom:16px; }
+  .section-title { font-size:11px; color:#00ff88; text-transform:uppercase; letter-spacing:1.5px; font-family:'JetBrains Mono',monospace; font-weight:600; margin-bottom:14px; }
+
+  .task-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:14px; }
+  .task-card { background:#060c14; border:1px solid #0f1a28; border-radius:10px; padding:16px; position:relative; transition:all 0.2s; }
+  .task-card:hover { border-color:#1a2a3a; }
+  .task-card.running { border-color:#00ff8830; }
+  .task-card.running::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:#00ff88; border-radius:10px 10px 0 0; }
+
+  .task-name { font-size:16px; font-weight:600; color:#e8f0f8; margin-bottom:4px; }
+  .task-email { font-size:11px; color:#556677; font-family:'JetBrains Mono',monospace; margin-bottom:12px; }
+  .task-status { display:inline-block; font-size:10px; font-family:'JetBrains Mono',monospace; padding:2px 8px; border-radius:3px; text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+  .task-status.running { background:#00ff8815; color:#00ff88; }
+  .task-status.stopped { background:#ff445515; color:#ff4455; }
+
+  .task-stats { display:flex; gap:16px; margin-bottom:12px; }
+  .task-stat { font-size:10px; color:#445566; font-family:'JetBrains Mono',monospace; }
+  .task-stat strong { color:#8899aa; }
+
+  .task-actions { display:flex; gap:6px; }
+  .btn { padding:6px 14px; border:1px solid #1a2a3a; background:none; color:#8899aa; border-radius:6px; cursor:pointer; font-size:11px; font-family:'JetBrains Mono',monospace; transition:all 0.2s; }
+  .btn:hover { border-color:#4ea8de; color:#4ea8de; }
+  .btn-go { border-color:#00ff8830; color:#00ff88; }
+  .btn-go:hover { border-color:#00ff88; background:#00ff8810; }
+  .btn-stop { border-color:#ff445530; color:#ff4455; }
+  .btn-stop:hover { border-color:#ff4455; background:#ff445510; }
+  .btn-danger { border-color:#ff445530; color:#ff4455; }
+  .btn-danger:hover { border-color:#ff4455; background:#ff445510; }
+  .btn-sm { padding:4px 10px; font-size:10px; }
+
+  .task-log { margin-top:10px; background:#030508; border:1px solid #0a1520; border-radius:6px; padding:8px; max-height:150px; overflow-y:auto; font-family:'JetBrains Mono',monospace; font-size:10px; display:none; }
+  .task-log.open { display:block; }
+  .task-log div { padding:1px 0; }
+  .task-log .success { color:#00ff88; }
+  .task-log .error { color:#ff4455; }
+  .task-log .warn { color:#ffaa00; }
+  .task-log .system { color:#4ea8de; }
+  .task-log .info { color:#556677; }
+
+  .inp { background:#0a1018; border:1px solid #1a2a3a; color:#e0e8f0; padding:7px 10px; border-radius:4px; font-size:12px; font-family:inherit; outline:none; }
+  .inp:focus { border-color:#00ff8850; }
+
+  .add-form { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .add-form .inp { width:180px; }
+
+  .empty { text-align:center; padding:40px; color:#334455; }
+  .empty-icon { font-size:40px; margin-bottom:8px; opacity:0.3; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="header">
+  <h1>Stock<span>Pulse</span> Tasks</h1>
+  <div class="nav">
+    <a href="/">Monitor</a>
+    <a href="/tasks" class="active">Tasks</a>
+    <a href="/history">History</a>
+    <a href="/config">Config</a>
+  </div>
+</div>
+
+<!-- Add Task -->
+<div class="section">
+  <div class="section-title">Add Task</div>
+  <div class="add-form">
+    <input class="inp" id="newName" placeholder="Task name (e.g. pokewinzmn)">
+    <input class="inp" id="newEmail" placeholder="Target email">
+    <input class="inp" id="newPassword" placeholder="Target password" type="password">
+    <input class="inp" id="newCvv" placeholder="CVV" type="password" style="width:80px">
+    <input class="inp" id="newQty" placeholder="Qty" type="number" value="2" style="width:60px">
+    <button class="btn btn-go" onclick="addTask()">Create Task</button>
+  </div>
+</div>
+
+<!-- Task Cards -->
+<div class="section">
+  <div class="section-title">Active Tasks</div>
+  <div class="task-grid" id="taskGrid"></div>
+  <div id="emptyState" class="empty" style="display:none">
+    <div class="empty-icon">🎯</div>
+    <div>No tasks yet — add a Target account above</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+var tasksData = {};
+
+function loadTasks() {
+  fetch("/api/tasks").then(function(r) { return r.json(); }).then(function(data) {
+    tasksData = data;
+    render();
+  });
+}
+
+function render() {
+  var grid = document.getElementById("taskGrid");
+  var empty = document.getElementById("emptyState");
+  var ids = Object.keys(tasksData);
+  
+  if (ids.length === 0) {
+    grid.innerHTML = "";
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  grid.innerHTML = ids.map(function(id) {
+    var t = tasksData[id];
+    var isRunning = t.status === "running";
+    return '<div class="task-card ' + (isRunning ? "running" : "") + '">'
+      + '<div class="task-name">' + t.name + '</div>'
+      + '<div class="task-email">' + (t.email || "no email set") + '</div>'
+      + '<span class="task-status ' + t.status + '">' + t.status + '</span>'
+      + '<div class="task-stats">'
+      + '<div class="task-stat">Qty: <strong>' + t.atcQty + '</strong></div>'
+      + '<div class="task-stat">Max/day: <strong>' + t.maxOrdersPerDay + '</strong></div>'
+      + '<div class="task-stat">CVV: <strong>' + (t.hasCvv ? "✓" : "✗") + '</strong></div>'
+      + '<div class="task-stat">PW: <strong>' + (t.hasPassword ? "✓" : "✗") + '</strong></div>'
+      + '<div class="task-stat">Queue: <strong>' + t.pendingAtcCount + '</strong></div>'
+      + '</div>'
+      + '<div class="task-actions">'
+      + (isRunning
+        ? '<button class="btn btn-stop btn-sm" onclick="stopTask(\'' + id + '\')">Stop</button>'
+        : '<button class="btn btn-go btn-sm" onclick="startTask(\'' + id + '\')">Start</button>')
+      + '<button class="btn btn-sm" onclick="toggleLog(\'' + id + '\')">Logs</button>'
+      + '<button class="btn btn-danger btn-sm" onclick="deleteTask(\'' + id + '\')">Delete</button>'
+      + '</div>'
+      + '<div class="task-log" id="log-' + id + '">Loading...</div>'
+      + '</div>';
+  }).join("");
+}
+
+function addTask() {
+  var name = document.getElementById("newName").value.trim();
+  var email = document.getElementById("newEmail").value.trim();
+  var password = document.getElementById("newPassword").value.trim();
+  var cvv = document.getElementById("newCvv").value.trim();
+  var qty = parseInt(document.getElementById("newQty").value) || 2;
+  if (!name) return alert("Name is required");
+  
+  fetch("/api/tasks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: name, email: email, password: password, cvv: cvv, atcQty: qty })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) {
+      document.getElementById("newName").value = "";
+      document.getElementById("newEmail").value = "";
+      document.getElementById("newPassword").value = "";
+      document.getElementById("newCvv").value = "";
+      loadTasks();
+    } else {
+      alert("Error: " + (d.error || "unknown"));
+    }
+  });
+}
+
+function startTask(id) {
+  fetch("/api/tasks/" + id + "/start", { method: "POST" }).then(function() { loadTasks(); });
+}
+
+function stopTask(id) {
+  fetch("/api/tasks/" + id + "/stop", { method: "POST" }).then(function() { loadTasks(); });
+}
+
+function deleteTask(id) {
+  if (!confirm("Delete task " + id + "? This cannot be undone.")) return;
+  fetch("/api/tasks/" + id, { method: "DELETE" }).then(function() { loadTasks(); });
+}
+
+function toggleLog(id) {
+  var el = document.getElementById("log-" + id);
+  if (el.classList.contains("open")) {
+    el.classList.remove("open");
+    return;
+  }
+  el.classList.add("open");
+  el.innerHTML = "Loading...";
+  fetch("/api/tasks/" + id + "/logs").then(function(r) { return r.json(); }).then(function(logs) {
+    el.innerHTML = logs.slice(-50).map(function(l) {
+      var t = new Date(l.time).toLocaleTimeString("en-US", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
+      return '<div class="' + l.type + '">' + t + ' ' + l.msg + '</div>';
+    }).join("");
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+loadTasks();
+setInterval(loadTasks, 3000);
+</script>
+</body>
+</html>

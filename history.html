@@ -149,13 +149,13 @@
 </div>
 
 <script>
-var history = [];
+var orderHistory = [];
 var chart = null;
 var chartMode = "orders";
 
 function loadHistory() {
   fetch("/api/history").then(function(r) { return r.json(); }).then(function(data) {
-    history = data || [];
+    orderHistory = data || [];
     render();
   });
 }
@@ -164,16 +164,16 @@ function render() {
   var today = new Date().toISOString().split("T")[0];
   
   // Stats
-  var totalOrders = history.length;
-  var totalItems = history.reduce(function(s, h) { return s + (h.qty || 0); }, 0);
-  var totalSpent = history.reduce(function(s, h) { return s + (h.total || 0); }, 0);
-  var todayData = history.filter(function(h) { return h.date === today; });
+  var totalOrders = orderHistory.length;
+  var totalItems = orderHistory.reduce(function(s, h) { return s + (h.qty || 0); }, 0);
+  var totalSpent = orderHistory.reduce(function(s, h) { return s + (h.total || 0); }, 0);
+  var todayData = orderHistory.filter(function(h) { return h.date === today; });
   var todaySpent = todayData.reduce(function(s, h) { return s + (h.total || 0); }, 0);
   var skus = {};
-  history.forEach(function(h) { skus[h.sku] = (skus[h.sku] || 0) + 1; });
+  orderHistory.forEach(function(h) { skus[h.sku] = (skus[h.sku] || 0) + 1; });
   var uniqueCount = Object.keys(skus).length;
   var topSku = Object.keys(skus).sort(function(a, b) { return skus[b] - skus[a]; })[0];
-  var topProduct = topSku ? history.find(function(h) { return h.sku === topSku; }) : null;
+  var topProduct = topSku ? orderHistory.find(function(h) { return h.sku === topSku; }) : null;
 
   document.getElementById("totalOrders").textContent = totalOrders;
   document.getElementById("totalItems").textContent = totalItems + " items";
@@ -189,7 +189,7 @@ function render() {
   var empty = document.getElementById("emptyState");
   document.getElementById("orderCount").textContent = totalOrders + " orders";
 
-  if (history.length === 0) {
+  if (orderHistory.length === 0) {
     tbody.innerHTML = "";
     empty.style.display = "";
     return;
@@ -197,7 +197,7 @@ function render() {
   empty.style.display = "none";
 
   // Sort newest first
-  var sorted = history.slice().reverse();
+  var sorted = orderHistory.slice().reverse();
   tbody.innerHTML = sorted.map(function(h) {
     var d = new Date(h.timestamp);
     var dateStr = (d.getMonth()+1) + "/" + d.getDate() + " " + d.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" });
@@ -218,7 +218,7 @@ function render() {
 function renderChart() {
   // Group by date
   var byDate = {};
-  history.forEach(function(h) {
+  orderHistory.forEach(function(h) {
     var d = h.date || h.timestamp.split("T")[0];
     if (!byDate[d]) byDate[d] = { orders: 0, spend: 0, items: 0 };
     byDate[d].orders++;

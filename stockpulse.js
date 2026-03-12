@@ -1,8 +1,10 @@
 // ═══════════════════════════════════════════════════════════════
-//  StockPulse — Target Stock Monitor + Web Dashboard
+//  StockPulse — Target Stock Monitor + Auto-Checkout
+//  Version: 2.0.0
 //
 //  Run:  npm install && node stockpulse.js
 //  Then open:  http://localhost:3069
+var VERSION = "2.0.0";
 // ═══════════════════════════════════════════════════════════════
 
 var express = require("express");
@@ -75,6 +77,9 @@ var CONFIG = {
   // Role verification — user must be in this server with this role
   DISCORD_VERIFY_SERVER_ID: "1481014372318056704",
   DISCORD_VERIFY_ROLE_NAME: "ACO OG",
+  // Multiple Target accounts — rotates after each successful order
+  TARGET_ACCOUNTS: [],  // [{ email: "...", password: "..." }, ...]
+  TARGET_CURRENT_ACCOUNT: 0,
 };
 
 // Load saved config
@@ -183,13 +188,133 @@ var monitorRunning = false;
 var totalChecks = 0;
 var totalAlerts = 0;
 var cycleCount = 0;
-var dailyOrders = {}; // { sku: { count: N, date: "YYYY-MM-DD" } }
+var dailyOrders = {};
 var startTime = null;
 var alertCooldowns = new Map();
 var logs = [];
-var targetCookies = "";  // Set by Chrome extension cookie sync
+var soundEvents = [];
+var targetCookies = "";
 var targetCookieArr = [];
-var harvesterStatus = "ready";  // Always ready — extension manages session
+var harvesterStatus = "ready";
+
+// ── TASK MANAGER ──────────────────────────────────────────────
+var TASKS_FILE = path.join(__dirname, ".stockpulse-tasks.json");
+var tasks = {};
+
+function createTask(id, cfg) {
+  return {
+    id: id, name: cfg.name || id, email: cfg.email || "", password: cfg.password || "",
+    cvv: cfg.cvv || "", atcQty: cfg.atcQty || CONFIG.ATC_QTY || 2,
+    maxOrdersPerDay: cfg.maxOrdersPerDay || CONFIG.MAX_ORDERS_PER_SKU_PER_DAY || 1,
+    status: "stopped", chromePid: null, logs: [],
+    pendingAtc: null, pendingAtcQueue: [], pendingCheckout: null,
+    lastOrderedSkus: [], dailyOrders: {}, created: new Date().toISOString(),
+  };
+}
+
+function loadTasks() {
+  try {
+    if (fs.existsSync(TASKS_FILE)) {
+      var saved = JSON.parse(fs.readFileSync(TASKS_FILE, "utf8"));
+      Object.keys(saved).forEach(function(id) {
+        tasks[id] = createTask(id, saved[id]);
+        Object.keys(saved[id]).forEach(function(k) {
+          if (k !== "status" && k !== "logs" && k !== "pendingAtc" && k !== "pendingAtcQueue" && k !== "pendingCheckout") {
+            tasks[id][k] = saved[id][k];
+          }
+        });
+      });
+      console.log("  Tasks loaded: " + Object.keys(tasks).length);
+    }
+  } catch(e) {}
+}
+function saveTasks() {
+  try {
+    var s = {};
+    Object.keys(tasks).forEach(function(id) {
+      var t = tasks[id];
+      s[id] = { name:t.name, email:t.email, password:t.password, cvv:t.cvv, atcQty:t.atcQty, maxOrdersPerDay:t.maxOrdersPerDay };
+    });
+    fs.writeFileSync(TASKS_FILE, JSON.stringify(s, null, 2));
+  } catch(e) {}
+}
+function taskLog(taskId, msg, type) {
+  type = type || "info";
+  var task = tasks[taskId];
+  if (task) {
+    task.logs.push({ msg: msg, type: type, time: new Date().toISOString() });
+    if (task.logs.length > 300) task.logs.splice(0, task.logs.length - 300);
+  }
+  addLog("[" + taskId + "] " + msg, type);
+}
+function canTaskOrderToday(taskId, sku) {
+  var task = tasks[taskId];
+  if (!task) return false;
+  var today = new Date().toISOString().split("T")[0];
+  var r = task.dailyOrders[sku];
+  if (!r || r.date !== today) return true;
+  return r.count < (task.maxOrdersPerDay || 1);
+}
+function recordTaskOrder(taskId, sku) {
+  var task = tasks[taskId];
+  if (!task) return;
+  var today = new Date().toISOString().split("T")[0];
+  if (!task.dailyOrders[sku] || task.dailyOrders[sku].date !== today) {
+    task.dailyOrders[sku] = { count: 1, date: today };
+  } else { task.dailyOrders[sku].count++; }
+  var product = products.find(function(p) { return p.sku === sku; });
+  purchaseHistory.push({
+    sku: sku, name: product ? product.name : "Unknown", type: product ? product.type : "Unknown",
+    price: product ? product.msrp : 0, qty: task.atcQty || 2,
+    total: (product ? product.msrp : 0) * (task.atcQty || 2),
+    timestamp: new Date().toISOString(), date: today, task: taskId,
+  });
+  saveHistory();
+}
+
+function launchChrome(taskId) {
+  var profileDir = path.join(__dirname, ".chrome-profiles", taskId);
+  var defaultDir = path.join(profileDir, "Default");
+  try { fs.mkdirSync(path.join(__dirname, ".chrome-profiles"), { recursive: true }); } catch(e) {}
+  
+  // If this is a fresh profile, copy extension from template
+  var templateProfile = path.join(__dirname, ".chrome-profile-template");
+  if (!fs.existsSync(path.join(defaultDir, "Extensions")) && fs.existsSync(templateProfile)) {
+    taskLog(taskId, "Copying extension from template profile...", "system");
+    try {
+      require("child_process").execSync('xcopy "' + templateProfile + '" "' + profileDir + '" /E /I /Q /Y', { stdio: "ignore" });
+      taskLog(taskId, "Template profile copied", "system");
+    } catch(e) {
+      taskLog(taskId, "Template copy failed: " + e.message, "warn");
+    }
+  }
+
+  var chromePaths = [
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome",
+  ];
+  var chromePath = chromePaths.find(function(p) { return fs.existsSync(p); });
+  if (!chromePath) { taskLog(taskId, "Chrome not found", "error"); return; }
+  var loginUrl = "https://www.target.com/?stockpulse_task=" + taskId;
+  var child = require("child_process").spawn(chromePath, [
+    "--user-data-dir=" + profileDir, "--no-first-run", "--no-default-browser-check",
+    "--profile-directory=Default",
+    loginUrl,
+  ], { detached: true, stdio: "ignore" });
+  child.unref();
+  tasks[taskId].chromePid = child.pid;
+  taskLog(taskId, "Chrome launched (pid: " + child.pid + ")", "system");
+}
+
+loadTasks();
+
+// Legacy single-task variables
+var pendingAtc = null;
+var pendingAtcQueue = [];
+var pendingCheckout = null;
+var lastOrderedSkus = [];
 
 // Credentials storage
 var CREDS_FILE = path.join(__dirname, ".stockpulse-creds.json");
@@ -836,8 +961,245 @@ app.get("/history", function(req, res) {
   res.sendFile(path.join(__dirname, "history.html"));
 });
 
+app.get("/tasks", function(req, res) {
+  res.sendFile(path.join(__dirname, "tasks.html"));
+});
+
+// Task CRUD APIs
+app.get("/api/tasks", function(req, res) {
+  var result = {};
+  Object.keys(tasks).forEach(function(id) {
+    var t = tasks[id];
+    result[id] = {
+      id: t.id, name: t.name, email: t.email, atcQty: t.atcQty,
+      maxOrdersPerDay: t.maxOrdersPerDay, status: t.status,
+      chromePid: t.chromePid, logsCount: t.logs.length,
+      hasCvv: !!t.cvv, hasPassword: !!t.password,
+      pendingAtcCount: t.pendingAtcQueue.length,
+      created: t.created,
+    };
+  });
+  res.json(result);
+});
+
+app.get("/api/tasks/:id", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.status(404).json({ error: "Task not found" });
+  res.json({
+    id: task.id, name: task.name, email: task.email, atcQty: task.atcQty,
+    maxOrdersPerDay: task.maxOrdersPerDay, status: task.status,
+    hasCvv: !!task.cvv, hasPassword: !!task.password,
+    logs: task.logs.slice(-100),
+    pendingAtcCount: task.pendingAtcQueue.length,
+    dailyOrders: task.dailyOrders,
+  });
+});
+
+app.post("/api/tasks", function(req, res) {
+  var b = req.body || {};
+  var id = (b.name || "task-" + Date.now()).toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  if (tasks[id]) return res.status(400).json({ error: "Task ID already exists" });
+  tasks[id] = createTask(id, b);
+  saveTasks();
+  addLog("Task created: " + id + " (" + (b.email || "no email") + ")", "system");
+  res.json({ ok: true, id: id });
+});
+
+app.put("/api/tasks/:id", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.status(404).json({ error: "Task not found" });
+  var b = req.body || {};
+  if (b.name !== undefined) task.name = b.name;
+  if (b.email !== undefined) task.email = b.email;
+  if (b.password !== undefined) task.password = b.password;
+  if (b.cvv !== undefined) task.cvv = b.cvv;
+  if (b.atcQty !== undefined) task.atcQty = parseInt(b.atcQty) || 2;
+  if (b.maxOrdersPerDay !== undefined) task.maxOrdersPerDay = parseInt(b.maxOrdersPerDay) || 1;
+  saveTasks();
+  res.json({ ok: true });
+});
+
+app.delete("/api/tasks/:id", function(req, res) {
+  var id = req.params.id;
+  if (!tasks[id]) return res.status(404).json({ error: "Task not found" });
+  delete tasks[id];
+  saveTasks();
+  addLog("Task deleted: " + id, "system");
+  res.json({ ok: true });
+});
+
+app.post("/api/tasks/:id/start", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.status(404).json({ error: "Task not found" });
+  task.status = "running";
+  taskLog(task.id, "Task STARTED", "system");
+  // Launch Chrome with dedicated profile
+  launchChrome(task.id);
+  res.json({ ok: true });
+});
+
+app.post("/api/tasks/:id/stop", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.status(404).json({ error: "Task not found" });
+  task.status = "stopped";
+  taskLog(task.id, "Task STOPPED", "system");
+  res.json({ ok: true });
+});
+
+// Task-specific ATC/checkout endpoints (extension identifies by ?task=ID)
+app.get("/api/tasks/:id/atc/pending", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task || task.status !== "running") return res.json(null);
+  if (task.pendingAtcQueue.length > 0) {
+    var next = task.pendingAtcQueue.shift();
+    task.pendingAtc = { sku: next.sku, qty: next.qty, timestamp: Date.now(), status: "picked_up" };
+    taskLog(task.id, "Extension picked up ATC: " + next.sku, "system");
+    res.json({ sku: next.sku, qty: next.qty });
+  } else {
+    res.json(null);
+  }
+});
+
+app.post("/api/tasks/:id/atc/result", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.json({ ok: false });
+  if (task.pendingAtc) {
+    task.pendingAtc.status = req.body.success ? "success" : "failed";
+    if (req.body.success) {
+      taskLog(task.id, "ATC SUCCESS: " + task.pendingAtc.sku + " x" + task.pendingAtc.qty, "success");
+      var product = products.find(function(p) { return p.sku === task.pendingAtc.sku; });
+      if (product) product._lastAtcTime = Date.now();
+      // Queue checkout
+      if (task.cvv) {
+        task.pendingCheckout = { cvv: task.cvv, sku: task.pendingAtc.sku, timestamp: Date.now(), status: "pending" };
+        taskLog(task.id, "Checkout queued", "system");
+      }
+    } else {
+      taskLog(task.id, "ATC FAILED: " + (req.body.error || "unknown"), "error");
+    }
+  }
+  res.json({ ok: true });
+});
+
+app.get("/api/tasks/:id/checkout/pending", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.json(null);
+  if (task.pendingCheckout && task.pendingCheckout.status === "pending" && Date.now() - task.pendingCheckout.timestamp < 300000) {
+    task.pendingCheckout.status = "picked_up";
+    res.json({ cvv: task.pendingCheckout.cvv });
+  } else {
+    res.json(null);
+  }
+});
+
+app.post("/api/tasks/:id/checkout/result", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) { addLog("Checkout result: task " + req.params.id + " not found", "error"); return res.json({ ok: false }); }
+  addLog("[" + task.id + "] Checkout result received: " + (req.body.success ? "SUCCESS" : "FAILED") + " sku=" + (task.pendingCheckout ? task.pendingCheckout.sku : "none"), "system");
+  if (task.pendingCheckout) {
+    task.pendingCheckout.status = req.body.success ? "success" : "failed";
+    if (req.body.success) {
+      taskLog(task.id, "ORDER PLACED!", "success");
+      soundEvents.push({ type: "success", msg: "Order placed by " + task.name });
+      var product = products.find(function(p) { return p.sku === task.pendingCheckout.sku; });
+      addLog("[" + task.id + "] Recording order: sku=" + task.pendingCheckout.sku + " product=" + (product ? product.name : "NOT FOUND"), "system");
+      if (product) {
+        recordTaskOrder(task.id, product.sku);
+        task.lastOrderedSkus.push(product.sku);
+        sendCheckoutSuccess(product, "Task: " + task.name);
+      }
+    } else {
+      taskLog(task.id, "Checkout failed: " + (req.body.error || "unknown"), "error");
+      soundEvents.push({ type: "fail", msg: "Checkout failed: " + task.name });
+    }
+  } else {
+    addLog("[" + task.id + "] No pendingCheckout — result ignored", "warn");
+  }
+  res.json({ ok: true });
+});
+
+app.get("/api/tasks/:id/password", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.json({ password: "" });
+  res.json({ password: task.password || "" });
+});
+
+app.get("/api/tasks/:id/logs", function(req, res) {
+  var task = tasks[req.params.id];
+  if (!task) return res.json([]);
+  res.json(task.logs.slice(-200));
+});
+
 app.get("/api/history", function(req, res) {
   res.json(purchaseHistory);
+});
+
+app.get("/api/sound-events", function(req, res) {
+  var events = soundEvents.splice(0);
+  res.json(events);
+});
+
+// Extension registration — maps Chrome extension instances to tasks
+var extensionToTask = {}; // { extensionId: taskId }
+
+app.get("/api/detect-task", function(req, res) {
+  var running = Object.keys(tasks).filter(function(id) { return tasks[id].status === "running"; });
+  res.json({ taskId: running.length > 0 ? running[0] : "" });
+});
+
+app.post("/api/register-extension", function(req, res) {
+  var extId = (req.body || {}).extensionId;
+  if (!extId) return res.json({ taskId: "" });
+  
+  // If already registered, return existing mapping
+  if (extensionToTask[extId]) {
+    var existingTask = tasks[extensionToTask[extId]];
+    if (existingTask && existingTask.status === "running") {
+      return res.json({ taskId: extensionToTask[extId] });
+    }
+  }
+  
+  // Find a running task that hasn't been claimed by another extension
+  var claimedTasks = {};
+  Object.keys(extensionToTask).forEach(function(eid) { claimedTasks[extensionToTask[eid]] = eid; });
+  
+  var running = Object.keys(tasks).filter(function(id) {
+    return tasks[id].status === "running" && !claimedTasks[id];
+  });
+  
+  if (running.length > 0) {
+    extensionToTask[extId] = running[0];
+    addLog("Extension " + extId.substring(0, 8) + " → task: " + running[0], "system");
+    return res.json({ taskId: running[0] });
+  }
+  
+  // No unclaimed running tasks — try any running task
+  running = Object.keys(tasks).filter(function(id) { return tasks[id].status === "running"; });
+  if (running.length > 0) {
+    extensionToTask[extId] = running[0];
+    return res.json({ taskId: running[0] });
+  }
+  
+  res.json({ taskId: "" });
+});
+
+// When a task starts, clear stale extension mappings
+app.post("/api/tasks/:id/claim", function(req, res) {
+  var taskId = req.params.id;
+  var extId = (req.body || {}).extensionId;
+  if (!taskId || !extId) return res.json({ ok: false });
+  
+  // Remove any previous mapping for this extension
+  Object.keys(extensionToTask).forEach(function(eid) {
+    if (extensionToTask[eid] === taskId) delete extensionToTask[eid];
+  });
+  extensionToTask[extId] = taskId;
+  addLog("Task " + taskId + " claimed by extension " + extId.substring(0, 8), "system");
+  res.json({ ok: true });
+});
+
+app.get("/api/version", function(req, res) {
+  res.json({ server: VERSION, tasks: Object.keys(tasks).length });
 });
 
 // Config API — get all config (mask sensitive values)
@@ -1044,26 +1406,54 @@ app.post("/api/test-checkout/:sku", async function(req, res) {
     return res.json({ ok: false, error: "Save CVV in Settings first" });
   }
 
-  // Queue browser ATC
-  addLog("TEST: Queuing browser ATC x" + CONFIG.ATC_QTY, "system");
-  pendingAtc = {
-    sku: sku,
-    qty: CONFIG.ATC_QTY || 2,
-    timestamp: Date.now(),
-    status: "pending"
-  };
+  // Queue browser ATC — route to tasks if any are running
+  var runningTasks = Object.keys(tasks).filter(function(id) { return tasks[id].status === "running"; });
+  
+  if (runningTasks.length > 0) {
+    addLog("TEST: Queuing ATC to " + runningTasks.length + " task(s)", "system");
+    runningTasks.forEach(function(tid) {
+      var task = tasks[tid];
+      task.pendingAtcQueue.push({ sku: sku, qty: task.atcQty || CONFIG.ATC_QTY || 2, product: product });
+      taskLog(tid, "TEST ATC queued: " + sku, "system");
+    });
+    
+    // Wait for any task's ATC result
+    var atcSuccess = false;
+    for (var i = 0; i < 60; i++) {
+      await sleep(500);
+      for (var t = 0; t < runningTasks.length; t++) {
+        var task = tasks[runningTasks[t]];
+        if (task.pendingAtc && task.pendingAtc.sku === sku && task.pendingAtc.status === "success") { atcSuccess = true; break; }
+      }
+      if (atcSuccess) break;
+    }
+    
+    if (!atcSuccess) {
+      addLog("TEST: ATC failed or timed out", "error");
+      return res.json({ ok: false, error: "ATC failed" });
+    }
+    addLog("TEST: ATC success — item in cart", "success");
+  } else {
+    // Legacy single-task mode
+    addLog("TEST: Queuing browser ATC x" + CONFIG.ATC_QTY, "system");
+    pendingAtc = {
+      sku: sku,
+      qty: CONFIG.ATC_QTY || 2,
+      timestamp: Date.now(),
+      status: "pending"
+    };
 
-  // Wait for ATC result (up to 30s)
-  for (var i = 0; i < 60; i++) {
-    await sleep(500);
-    if (pendingAtc && (pendingAtc.status === "success" || pendingAtc.status === "failed")) break;
-  }
+    for (var i = 0; i < 60; i++) {
+      await sleep(500);
+      if (pendingAtc && (pendingAtc.status === "success" || pendingAtc.status === "failed")) break;
+    }
 
-  if (!pendingAtc || pendingAtc.status !== "success") {
-    addLog("TEST: ATC failed or timed out", "error");
-    return res.json({ ok: false, error: "ATC failed" });
+    if (!pendingAtc || pendingAtc.status !== "success") {
+      addLog("TEST: ATC failed or timed out", "error");
+      return res.json({ ok: false, error: "ATC failed" });
+    }
+    addLog("TEST: ATC success — item in cart", "success");
   }
-  addLog("TEST: ATC success — item in cart", "success");
 
   // Check daily limit
   if (!canOrderToday(sku)) {
@@ -1077,12 +1467,29 @@ app.post("/api/test-checkout/:sku", async function(req, res) {
   // Wait for checkout result (up to 3 min)
   for (var j = 0; j < 360; j++) {
     await sleep(500);
+    // Check task checkouts
+    var taskDone = false;
+    Object.keys(tasks).forEach(function(tid) {
+      var t = tasks[tid];
+      if (t.pendingCheckout && (t.pendingCheckout.status === "success" || t.pendingCheckout.status === "failed")) {
+        taskDone = true;
+      }
+    });
+    if (taskDone) break;
+    // Legacy fallback
     if (pendingCheckout && (pendingCheckout.status === "success" || pendingCheckout.status === "failed")) break;
   }
 
-  if (pendingCheckout && pendingCheckout.status === "success") {
+  // Check if any task succeeded
+  var orderPlaced = false;
+  Object.keys(tasks).forEach(function(tid) {
+    var t = tasks[tid];
+    if (t.pendingCheckout && t.pendingCheckout.status === "success") orderPlaced = true;
+  });
+  if (!orderPlaced && pendingCheckout && pendingCheckout.status === "success") orderPlaced = true;
+
+  if (orderPlaced) {
     addLog("═══ TEST ORDER PLACED! ═══", "success");
-    // recordOrder and Discord notification handled by browser-checkout result handler
     return res.json({ ok: true });
   } else {
     addLog("TEST: Checkout failed or timed out", "error");
@@ -1436,6 +1843,7 @@ app.post("/api/discord-alert", async function(req, res) {
   }
   
   addLog("═══ DISCORD WATCHER: " + tcins.length + " TCIN(s) detected ═══", "success");
+  soundEvents.push({ type: "alert", msg: tcins.length + " alert(s)" });
   addLog("Source: " + message.substring(0, 100), "info");
 
   // Forward to webhook if configured
@@ -1484,8 +1892,41 @@ app.post("/api/discord-alert", async function(req, res) {
     var product = products.find(function(p) { return p.sku === tcin; });
     
     if (!product) {
-      addLog("TCIN " + tcin + " not in dashboard — skipping", "warn");
-      continue;
+      // Auto-add new product with CO enabled
+      addLog("TCIN " + tcin + " not in dashboard — auto-adding...", "system");
+      var autoName = productName || ("New Product " + tcin);
+      autoName = autoName
+        .replace(/^Pok.*?mon Trading Card Game[:\s]*/i, "")
+        .replace(/^Pok.*?mon TCG[:\s]*/i, "")
+        .replace(/^Pokemon\s+/i, "")
+        .replace(/&#\d+;/g, "")
+        .trim();
+      
+      // Detect type from name
+      var autoType = "Unknown";
+      var nl = autoName.toLowerCase();
+      if (nl.indexOf("elite trainer box") !== -1 || nl.indexOf("etb") !== -1) autoType = "ETB";
+      else if (nl.indexOf("ultra-premium") !== -1 || nl.indexOf("ultra premium") !== -1) autoType = "UPC";
+      else if (nl.indexOf("booster bundle") !== -1) autoType = "Booster Bundle";
+      else if (nl.indexOf("booster box") !== -1) autoType = "Booster Box";
+      else if (nl.indexOf("premium") !== -1 && nl.indexOf("collection") !== -1) autoType = "Premium Collection";
+      else if (nl.indexOf("collection") !== -1) autoType = "Collection Box";
+      else if (nl.indexOf("tin") !== -1) autoType = "Tin";
+      else if (nl.indexOf("blister") !== -1 || nl.indexOf("pack") !== -1) autoType = "Blister";
+      else if (nl.indexOf("bundle") !== -1) autoType = "Bundle";
+      
+      product = {
+        name: autoName, type: autoType, sku: tcin, msrp: 0,
+        status: "IDLE", lastChecked: null, currentPrice: null,
+        seller: null, isThirdParty: false, quantity: null,
+        checks: 0, alerts: 0, shipAvailable: false,
+        pickupAvailable: false, enabled: true, autoCheckout: false, lastAlerted: null,
+        _autoAdded: true,
+      };
+      products.push(product);
+      saveProductState();
+      addLog("AUTO-ADDED: " + autoName + " (" + tcin + ") [" + autoType + "] — monitoring only (enable CO to auto-checkout)", "success");
+      soundEvents.push({ type: "alert", msg: "New product auto-added" });
     }
     if (!product.enabled) {
       addLog("SKIP: " + product.name + " — On checkbox is OFF", "warn");
@@ -1524,11 +1965,31 @@ app.post("/api/discord-alert", async function(req, res) {
       addLog("✓ Stock VERIFIED: IN_STOCK!", "success");
     }
 
-    // Queue ATC
-    if (!pendingAtcQueue) pendingAtcQueue = [];
-    if (!pendingAtcQueue.find(function(q) { return q.sku === tcin; })) {
-      pendingAtcQueue.push({ sku: tcin, qty: CONFIG.ATC_QTY || 2, product: product });
-      addLog("═══ QUEUED ATC: " + product.name + " x" + CONFIG.ATC_QTY + " ═══", "system");
+    // Queue ATC for ALL running tasks
+    var tasksQueued = 0;
+    Object.keys(tasks).forEach(function(tid) {
+      var task = tasks[tid];
+      if (task.status !== "running") return;
+      if (!canTaskOrderToday(tid, tcin)) {
+        taskLog(tid, "Daily limit reached for " + tcin, "warn");
+        return;
+      }
+      if (!task.pendingAtcQueue.find(function(q) { return q.sku === tcin; })) {
+        task.pendingAtcQueue.push({ sku: tcin, qty: task.atcQty || CONFIG.ATC_QTY || 2, product: product });
+        taskLog(tid, "═══ QUEUED ATC: " + product.name + " x" + (task.atcQty || CONFIG.ATC_QTY) + " ═══", "system");
+        tasksQueued++;
+      }
+    });
+    
+    // Legacy single-task queue (for backward compat if no tasks configured)
+    if (tasksQueued === 0) {
+      if (!pendingAtcQueue) pendingAtcQueue = [];
+      if (!pendingAtcQueue.find(function(q) { return q.sku === tcin; })) {
+        pendingAtcQueue.push({ sku: tcin, qty: CONFIG.ATC_QTY || 2, product: product });
+        addLog("═══ QUEUED ATC: " + product.name + " x" + CONFIG.ATC_QTY + " ═══", "system");
+      }
+    } else {
+      addLog("ATC queued for " + tasksQueued + " task(s)", "system");
     }
 
     // Send Discord alert
@@ -1551,6 +2012,36 @@ app.post("/api/discord-alert", async function(req, res) {
 
 // Re-order: after successful checkout, re-queue same items if daily limit allows
 var lastOrderedSkus = []; // Track what was just ordered
+
+// Get current Target account for the extension to use for login
+app.get("/api/target-account", function(req, res) {
+  if (CONFIG.TARGET_ACCOUNTS && CONFIG.TARGET_ACCOUNTS.length > 0) {
+    var idx = CONFIG.TARGET_CURRENT_ACCOUNT || 0;
+    if (idx >= CONFIG.TARGET_ACCOUNTS.length) idx = 0;
+    res.json({ 
+      email: CONFIG.TARGET_ACCOUNTS[idx].email,
+      password: CONFIG.TARGET_ACCOUNTS[idx].password,
+      index: idx,
+      total: CONFIG.TARGET_ACCOUNTS.length
+    });
+  } else {
+    // Fall back to single account from credentials
+    res.json({ email: "", password: credentials.targetPassword || "", index: 0, total: 1 });
+  }
+});
+
+// Rotate to next account after successful order
+app.post("/api/rotate-account", function(req, res) {
+  if (CONFIG.TARGET_ACCOUNTS && CONFIG.TARGET_ACCOUNTS.length > 1) {
+    CONFIG.TARGET_CURRENT_ACCOUNT = ((CONFIG.TARGET_CURRENT_ACCOUNT || 0) + 1) % CONFIG.TARGET_ACCOUNTS.length;
+    saveConfig();
+    var next = CONFIG.TARGET_ACCOUNTS[CONFIG.TARGET_CURRENT_ACCOUNT];
+    addLog("ACCOUNT ROTATED → " + next.email + " (account " + (CONFIG.TARGET_CURRENT_ACCOUNT + 1) + "/" + CONFIG.TARGET_ACCOUNTS.length + ")", "system");
+    res.json({ ok: true, nextEmail: next.email, index: CONFIG.TARGET_CURRENT_ACCOUNT });
+  } else {
+    res.json({ ok: true, msg: "Only one account configured" });
+  }
+});
 
 app.post("/api/reorder", function(req, res) {
   if (!lastOrderedSkus || lastOrderedSkus.length === 0) {
@@ -1618,7 +2109,7 @@ app.post("/api/browser-atc/result", function(req, res) {
         var product = products.find(function(p) { return p.sku === pendingAtc.sku; });
         if (product && product.isThirdParty) {
           addLog("BLOCKED: third-party seller — no checkout", "error");
-        } else if (product && product.msrp === 0) {
+        } else if (product && product.msrp === 0 && product._autoAdded !== true) {
           addLog("BLOCKED: price not verified for " + pendingAtc.sku + " — run Scan MSRPs first", "error");
         } else if (!canOrderToday(pendingAtc.sku)) {
           addLog("BLOCKED: Daily order limit reached for " + pendingAtc.sku, "warn");
@@ -1706,6 +2197,7 @@ app.post("/api/browser-checkout/result", function(req, res) {
     pendingCheckout.status = req.body.success ? "success" : "failed";
     if (req.body.success) {
       addLog("ORDER PLACED via browser checkout!", "success");
+      soundEvents.push({ type: "success", msg: "Order placed!" });
       // Track ordered SKUs for potential re-order
       lastOrderedSkus = [];
       var product = products.find(function(p) { return p.sku === pendingCheckout.sku; });
@@ -1726,6 +2218,7 @@ app.post("/api/browser-checkout/result", function(req, res) {
       });
     } else {
       addLog("Browser checkout failed: " + (req.body.error || "unknown"), "error");
+      soundEvents.push({ type: "fail", msg: "Checkout failed" });
       // Notify if item was in cart but checkout failed
       if (CONFIG.DISCORD_CHECKOUT_FAILED_WEBHOOK && req.body.error && req.body.error.indexOf("Cart empty") === -1) {
         var failProduct = pendingCheckout ? products.find(function(p) { return p.sku === pendingCheckout.sku; }) : null;
@@ -2177,7 +2670,7 @@ function startDiscordListener() {
 
 app.listen(PORT, function() {
   console.log("");
-  console.log("  ◎ StockPulse — Target Stock Monitor");
+  console.log("  ◎ StockPulse v" + VERSION + " — Target Stock Monitor");
   console.log("  ─────────────────────────────────────");
   console.log("  Dashboard:  http://localhost:" + PORT);
   console.log("  SKUs:       " + products.length + " loaded");

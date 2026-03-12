@@ -11,3 +11,6 @@
 /.stockpulse-creds.json
 /.stockpulse-products.json
 *.sqlite-journal
+/.chrome-profiles
+/.stockpulse-history.json
+/.stockpulse-tasks.json

@@ -1,17 +1,19 @@
 {
   "manifest_version": 3,
   "name": "StockPulse Cookie Sync",
-  "version": "1.1",
+  "version": "2.0.0",
   "description": "Auto-syncs Target.com cookies and monitors Discord for stock alerts",
   "permissions": [
     "cookies",
     "alarms",
     "scripting",
-    "tabs"
+    "tabs",
+    "storage"
   ],
   "host_permissions": [
     "https://*.target.com/*",
     "http://*.target.com/*",
+    "https://login.target.com/*",
     "http://localhost:3069/*",
     "https://discord.com/*"
   ],
