@@ -125,6 +125,20 @@
   <div class="section-title">Advanced</div>
   <div class="grid-2">
     <div class="field">
+      <div class="field-label">Discord Bot Token <span style="color:#556677;font-size:9px;text-transform:none">(for forwarding alerts to your server)</span></div>
+      <div class="field-row">
+        <input class="inp" id="DISCORD_BOT_TOKEN" type="password" placeholder="Bot token from Discord Developer Portal">
+        <button class="btn-icon" onclick="toggleVis('DISCORD_BOT_TOKEN')">👁</button>
+        <button class="btn" onclick="testBotToken(this)">Test</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">Bot Alert Channel ID <span style="color:#556677;font-size:9px;text-transform:none">(channel where bot posts alerts)</span></div>
+      <input class="inp inp-med" id="DISCORD_BOT_CHANNEL_ID" placeholder="Channel ID">
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="field">
       <div class="field-label">Discord Poll Interval (ms)</div>
       <input class="inp inp-sm" id="DISCORD_POLL_INTERVAL_MS" type="number" placeholder="2000">
     </div>
@@ -252,6 +266,26 @@ function testToken(btn) {
   });
 }
 
+// Test Discord bot token — send a test message to the channel
+function testBotToken(btn) {
+  var token = document.getElementById("DISCORD_BOT_TOKEN").value.trim();
+  var channelId = document.getElementById("DISCORD_BOT_CHANNEL_ID").value.trim();
+  if (!token || !channelId) { btn.textContent = "Need token + channel"; btn.style.color = "#ff4455"; setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 2000); return; }
+  btn.textContent = "...";
+  fetch("/api/test-discord-bot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token, channelId: channelId })
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    if (d.ok) { btn.textContent = "✓ Sent"; btn.style.color = "#00ff88"; }
+    else { btn.textContent = "✗ " + (d.error || "").substring(0, 30); btn.style.color = "#ff4455"; }
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 3000);
+  }).catch(function() {
+    btn.textContent = "✗ Error"; btn.style.color = "#ff4455";
+    setTimeout(function() { btn.textContent = "Test"; btn.style.color = ""; }, 3000);
+  });
+}
+
 // Toggle password visibility
 function toggleVis(id) {
   var el = document.getElementById(id);
@@ -263,7 +297,8 @@ function loadConfig() {
   fetch("/api/config/raw").then(function(r) { return r.json(); }).then(function(data) {
     config = data;
     var simpleFields = ["ZIP_CODE","STORE_ID","ATC_QTY","MAX_ORDERS_PER_SKU_PER_DAY",
-      "DISCORD_USER_TOKEN","DISCORD_FORWARD_WEBHOOK",
+      "DISCORD_USER_TOKEN","DISCORD_BOT_TOKEN","DISCORD_BOT_CHANNEL_ID",
+      "DISCORD_FORWARD_WEBHOOK",
       "DISCORD_CHECKOUT_FAILED_WEBHOOK","DISCORD_LOG_WEBHOOK",
       "DISCORD_POLL_INTERVAL_MS","ALERT_COOLDOWN_MS"];
     simpleFields.forEach(function(f) {
@@ -372,7 +407,9 @@ function removeForwardChannel(idx) {
 function saveAll() {
   // Gather simple fields
   var updates = {};
-  var simpleFields = ["ZIP_CODE","STORE_ID","DISCORD_USER_TOKEN","DISCORD_FORWARD_WEBHOOK",
+  var simpleFields = ["ZIP_CODE","STORE_ID","DISCORD_USER_TOKEN",
+    "DISCORD_BOT_TOKEN","DISCORD_BOT_CHANNEL_ID",
+    "DISCORD_FORWARD_WEBHOOK",
     "DISCORD_CHECKOUT_FAILED_WEBHOOK","DISCORD_LOG_WEBHOOK"];
   simpleFields.forEach(function(f) {
     var el = document.getElementById(f);

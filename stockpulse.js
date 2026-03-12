@@ -62,6 +62,7 @@ var CONFIG = {
   MAX_ORDERS_PER_SKU_PER_DAY: 1,
   MAX_CHECKS_PER_CYCLE: 10,
   DISCORD_BOT_TOKEN: "",
+  DISCORD_BOT_CHANNEL_ID: "",
   DISCORD_USER_TOKEN: "",
   DISCORD_LISTEN_CHANNELS: {},
   DISCORD_ACTIVE_CHANNELS: [],
@@ -74,9 +75,6 @@ var CONFIG = {
   // Role verification — user must be in this server with this role
   DISCORD_VERIFY_SERVER_ID: "1481014372318056704",
   DISCORD_VERIFY_ROLE_NAME: "ACO OG",
-  // Bot forwarding — posts alerts to your server via bot
-  DISCORD_BOT_TOKEN: "MTQ4MTQ0NTc4ODU4MzIwMjkzOQ.GZI18H.QP3uRDmlOh_pj-ijAw1OsR85j7iZ2Un80K6Guo",
-  DISCORD_BOT_CHANNEL_ID: "1481014450566725805",
 };
 
 // Load saved config
@@ -1579,6 +1577,27 @@ app.post("/api/test-discord-token", async function(req, res) {
       res.json({ ok: true, username: user.username + "#" + user.discriminator });
     } else {
       res.json({ ok: false, error: r.status + " " + r.statusText });
+    }
+  } catch(e) {
+    res.json({ ok: false, error: e.message });
+  }
+});
+
+app.post("/api/test-discord-bot", async function(req, res) {
+  var token = (req.body || {}).token;
+  var channelId = (req.body || {}).channelId;
+  if (!token || !channelId) return res.json({ ok: false, error: "Need token + channel ID" });
+  try {
+    var r = await fetch("https://discord.com/api/v10/channels/" + channelId + "/messages", {
+      method: "POST",
+      headers: { "Authorization": "Bot " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ embeds: [{ title: "StockPulse Bot Test", description: "Bot is connected and can post to this channel!", color: 65280, timestamp: new Date().toISOString() }] })
+    });
+    if (r.ok) {
+      res.json({ ok: true });
+    } else {
+      var body = await r.text();
+      res.json({ ok: false, error: r.status + " " + body.substring(0, 200) });
     }
   } catch(e) {
     res.json({ ok: false, error: e.message });
